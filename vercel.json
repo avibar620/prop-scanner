@@ -1,4 +1,5 @@
 {
+  "framework": "nextjs",
   "crons": [
     { "path": "/api/cron?type=morning", "schedule": "0 7 * * *" },
     { "path": "/api/cron?type=afternoon", "schedule": "0 14 * * *" },
