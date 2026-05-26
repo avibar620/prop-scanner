@@ -1,0 +1,165 @@
+// Prop-Scanner — Belgian real estate intelligence platform
+// 10 models: User, SearchArea, DataSource, Property, PriceHistory,
+//           MarketAverage, Note, AlertRule, ScanLog, EmailQueue
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("viewer") // "admin" | "viewer"
+  createdAt DateTime @default(now())
+}
+
+model SearchArea {
+  id         String   @id @default(cuid())
+  name       String
+  postalCode String?
+  city       String
+  region     String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+model DataSource {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  url         String
+  isActive    Boolean   @default(true)
+  lastScanned DateTime?
+  totalFound  Int       @default(0)
+  createdAt   DateTime  @default(now())
+}
+
+model Property {
+  id             String         @id @default(cuid())
+  externalId     String         @unique
+  source         String
+  sourceUrl      String
+  url            String
+  title          String
+  price          Int
+  pricePerSqm    Int?
+  sqm            Int?
+  rooms          Int?
+  type           String         // "apartment" | "house" | "apartmentBuilding" | "commercial" | "land"
+  address        String
+  city           String
+  municipality   String
+  postalCode     String
+  lat            Float?
+  lng            Float?
+  imageUrl       String?
+  imageUrls      String[]
+  publishedAt    DateTime?
+  firstSeenAt    DateTime       @default(now())
+  lastSeenAt     DateTime       @default(now())
+  isActive       Boolean        @default(true)
+  avgMarketPrice Int?
+  discountPct    Float?
+  pricePerSqmAvg Int?
+  splitStatus    String?        // "official" | "not_official" | "partial" | "not_mentioned"
+  splitDetails   String?
+  isFavorite     Boolean        @default(false)
+  aiAnalysis     String?
+  aiScore        Int?
+  aiUpdatedAt    DateTime?
+  agentEmail     String?
+  agentName      String?
+  agentPhone     String?
+  priceHistory   PriceHistory[]
+  notes          Note[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([city])
+  @@index([postalCode])
+  @@index([type])
+  @@index([discountPct])
+  @@index([firstSeenAt])
+}
+
+model PriceHistory {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  price      Int
+  recordedAt DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model MarketAverage {
+  id             String   @id @default(cuid())
+  city           String
+  postalCode     String
+  type           String
+  avgPricePerSqm Int
+  sampleSize     Int
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  @@unique([postalCode, type])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId     String
+  content    String
+  tag        String?
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model AlertRule {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  postalCode     String?
+  city           String?
+  type           String?
+  maxPricePerSqm Int?
+  minDiscount    Float?
+  alertMode      String   @default("summary") // "immediate" | "summary"
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ScanLog {
+  id        String   @id @default(cuid())
+  source    String
+  status    String   // "success" | "error" | "skipped"
+  count     Int      @default(0)
+  newCount  Int      @default(0)
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model EmailQueue {
+  id        String    @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  type      String    // "alert" | "summary_morning" | "summary_afternoon" | "summary_evening" | "agent"
+  sent      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([sent])
+}

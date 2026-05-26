@@ -1,26 +1,148 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Prop-Scanner — Design tokens (Rightmove-style, clean & warm)
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #FAFAF8;
+  --card: #FFFFFF;
+  --border: #E8E4DC;
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6B6B;
+  --accent: #C9A84C;
+  --accent-hover: #B8963E;
+
+  --deal-excellent: #1A7A4A;
+  --deal-good: #2E7D32;
+  --deal-ok: #F57F17;
+  --deal-low: #9E9E9E;
+
+  --danger: #C62828;
+  --warning: #E65100;
+
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
+/* Expose tokens to Tailwind v4 as `bg-bg`, `text-accent`, etc. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-deal-excellent: var(--deal-excellent);
+  --color-deal-good: var(--deal-good);
+  --color-deal-ok: var(--deal-ok);
+  --color-deal-low: var(--deal-low);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-inter), Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hebrew RTL refinements */
+html[dir="rtl"] body {
+  font-family: var(--font-inter), Inter, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+}
+
+/* Reusable component classes */
+@layer components {
+  .ps-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .ps-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .ps-btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    transition: background 0.15s ease;
+  }
+  .ps-btn-primary:hover {
+    background: var(--accent-hover);
+  }
+  .ps-btn-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .ps-btn-secondary {
+    background: #fff;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 500;
+    transition: background 0.15s ease;
+  }
+  .ps-btn-secondary:hover {
+    background: #F5F2EC;
+  }
+
+  .ps-btn-danger {
+    background: var(--danger);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+  }
+
+  .ps-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  .ps-btn-ghost:hover {
+    background: #F5F2EC;
+    color: var(--text-primary);
+  }
+
+  .ps-input {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ps-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.25);
+  }
+
+  .ps-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+  }
 }
