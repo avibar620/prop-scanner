@@ -24,16 +24,39 @@ async function seedAdmin() {
 // 2. Data sources
 // ---------------------------------------------------------------
 const SOURCES: Array<{ name: string; url: string }> = [
-  { name: "Zimmo", url: "https://www.zimmo.be" },
-  { name: "Immoweb", url: "https://www.immoweb.be" },
-  { name: "Realo", url: "https://www.realo.be" },
-  { name: "Immo.be", url: "https://www.immo.be" },
-  { name: "Logic-Immo", url: "https://www.logic-immo.be" },
-  { name: "ERA Belgium", url: "https://www.era.be" },
-  { name: "Century21 Belgium", url: "https://www.century21.be" },
-  { name: "BidditImmo", url: "https://www.biddit.be" },
-  { name: "Hebbes", url: "https://www.hebbes.be" },
-  { name: "Immovlan", url: "https://www.immovlan.be" },
+  // Group A — major portals
+  { name: "Zimmo", url: "https://www.zimmo.be" },                       // ✓ live scraper verified
+  { name: "Immoweb", url: "https://www.immoweb.be" },                   // stub — needs Playwright
+  { name: "Realo", url: "https://www.realo.be" },                       // stub
+  { name: "Immo.be", url: "https://www.immo.be" },                      // stub
+  { name: "Logic-Immo", url: "https://www.logic-immo.be" },             // stub
+  { name: "Immovlan", url: "https://www.immovlan.be" },                 // stub
+  // Group B — auctions
+  { name: "BidditImmo", url: "https://www.biddit.be" },                 // stub — ToS review needed
+  { name: "Troostwijk", url: "https://www.troostwijkauctions.com" },    // stub
+  { name: "Notaris.be", url: "https://www.notaris.be" },                // stub
+  // Group C — national chains
+  { name: "ERA Belgium", url: "https://www.era.be" },                   // stub
+  { name: "Century21 Belgium", url: "https://www.century21.be" },       // stub
+  { name: "RE/MAX Belgium", url: "https://www.remax.be" },              // stub
+  { name: "Sotheby's Belgium", url: "https://www.sothebysrealty.be" }, // stub
+  { name: "Engel & Völkers", url: "https://www.engelvoelkers.com" },    // stub
+  { name: "Trevi", url: "https://www.trevi.be" },                       // stub
+  { name: "Latour & Petit", url: "https://www.latouretpetit.be" },      // stub
+  { name: "Immo Francken", url: "https://www.immofrancken.be" },        // stub
+  { name: "Dewaele", url: "https://www.dewaele.com" },                  // stub
+  { name: "Confidence Immo", url: "https://www.confidence.be" },        // stub
+  { name: "Syndic One", url: "https://www.syndicone.be" },              // stub
+  // Group D — regional/specialty
+  { name: "Axel Immo", url: "https://www.axelimmo.be" },                // stub
+  { name: "Immo Wouters", url: "https://www.immowouters.be" },          // stub
+  { name: "Immo Corner", url: "https://www.immocorner.be" },            // stub
+  { name: "Immo Pické", url: "https://www.immopicke.be" },              // stub
+  { name: "Hebbes", url: "https://www.hebbes.be" },                     // stub
+  { name: "2dehands Immo", url: "https://www.2dehands.be" },            // stub — Adevinta, legal risk
+  { name: "Kapaza", url: "https://www.kapaza.be" },                     // stub — Adevinta, legal risk
+  { name: "Immo Nervia", url: "https://www.immonervia.be" },            // stub
+  { name: "Immo Mechelen", url: "https://www.immomechelen.be" },        // stub
 ];
 
 async function seedSources() {
