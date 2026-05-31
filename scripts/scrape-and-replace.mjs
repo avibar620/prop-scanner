@@ -1,0 +1,167 @@
+// Full Zimmo scrape against all active areas + replace demo properties + recalc market averages.
+// Run locally against Neon. User has taken explicit responsibility for IP-block risk.
+import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env.local", override: true });
+import { scrapeZimmo } from "../lib/scrapers/zimmo.ts";
+
+const prisma = new PrismaClient();
+const start = Date.now();
+
+// 1. Active areas
+const areas = await prisma.searchArea.findMany({
+  where: { isActive: true, postalCode: { not: null } },
+  select: { city: true, postalCode: true },
+});
+console.log(`Scraping ${areas.length} areas via Zimmo (this will take several minutes)...\n`);
+
+// 2. Scrape
+const raw = await scrapeZimmo(
+  areas.map((a) => ({ city: a.city, postalCode: a.postalCode }))
+);
+console.log(`\n✓ Scraped ${raw.length} raw listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+
+if (raw.length < 50) {
+  console.error("FATAL: scraped < 50 listings — aborting before any destructive op");
+  await prisma.$disconnect();
+  process.exit(1);
+}
+
+// 3. Validation
+const realImg = raw.filter((r) => r.imageUrl?.includes("zimmo.be")).length;
+const validPrice = raw.filter((r) => r.price > 1000).length;
+console.log(`  Real Zimmo images: ${realImg}/${raw.length}`);
+console.log(`  Valid prices:      ${validPrice}/${raw.length}`);
+
+if (realImg / raw.length < 0.9) {
+  console.error("FATAL: < 90% of listings have real Zimmo image — aborting");
+  await prisma.$disconnect();
+  process.exit(1);
+}
+
+// 4. Delete demo properties (anything with picsum.photos image — the seed signature)
+const demosBefore = await prisma.property.count({
+  where: { imageUrl: { contains: "picsum.photos" } },
+});
+console.log(`\n→ Deleting ${demosBefore} demo properties (with picsum images)...`);
+const deleted = await prisma.property.deleteMany({
+  where: { imageUrl: { contains: "picsum.photos" } },
+});
+console.log(`  Deleted ${deleted.count} demos (cascaded notes + priceHistory)`);
+
+// 5. Upsert real
+console.log(`\n→ Upserting ${raw.length} real listings into Neon...`);
+let created = 0;
+let updated = 0;
+let failed = 0;
+for (const r of raw) {
+  try {
+    const pricePerSqm = r.sqm && r.sqm > 0 ? Math.round(r.price / r.sqm) : null;
+    const data = {
+      source: r.source,
+      sourceUrl: r.sourceUrl,
+      url: r.url,
+      title: r.title,
+      price: r.price,
+      pricePerSqm,
+      sqm: r.sqm ?? null,
+      rooms: r.rooms ?? null,
+      type: r.type,
+      address: r.address,
+      city: r.city,
+      municipality: r.municipality,
+      postalCode: r.postalCode,
+      lat: r.lat ?? null,
+      lng: r.lng ?? null,
+      imageUrl: r.imageUrl ?? null,
+      imageUrls: r.imageUrls ?? [],
+      publishedAt: r.publishedAt ?? null,
+      agentEmail: r.agentEmail ?? null,
+      agentName: r.agentName ?? null,
+      agentPhone: r.agentPhone ?? null,
+      lastSeenAt: new Date(),
+      isActive: true,
+    };
+    const existing = await prisma.property.findUnique({
+      where: { externalId: r.externalId },
+      select: { id: true, price: true },
+    });
+    if (existing) {
+      await prisma.property.update({ where: { id: existing.id }, data });
+      if (existing.price !== r.price) {
+        await prisma.priceHistory.create({ data: { propertyId: existing.id, price: r.price } });
+      }
+      updated++;
+    } else {
+      const c = await prisma.property.create({ data: { externalId: r.externalId, ...data } });
+      await prisma.priceHistory.create({ data: { propertyId: c.id, price: r.price } });
+      created++;
+    }
+  } catch (e) {
+    failed++;
+    if (failed <= 3) console.error(`  upsert failed for ${r.externalId}:`, e instanceof Error ? e.message : e);
+  }
+}
+console.log(`  Created: ${created}, Updated: ${updated}, Failed: ${failed}`);
+
+// 6. Recalc market averages
+console.log(`\n→ Recalculating market averages...`);
+const properties = await prisma.property.findMany({
+  where: { isActive: true, pricePerSqm: { not: null } },
+  select: { id: true, city: true, postalCode: true, type: true, pricePerSqm: true },
+});
+
+const byPostal = new Map();
+for (const p of properties) {
+  if (!p.pricePerSqm) continue;
+  const k = `${p.postalCode}|${p.type}`;
+  if (!byPostal.has(k)) byPostal.set(k, { city: p.city, postalCode: p.postalCode, type: p.type, samples: [] });
+  byPostal.get(k).samples.push(p.pricePerSqm);
+}
+
+await prisma.marketAverage.deleteMany({});
+let groupsComputed = 0;
+for (const g of byPostal.values()) {
+  if (g.samples.length < 3) continue;
+  const avg = Math.round(g.samples.reduce((a, b) => a + b, 0) / g.samples.length);
+  await prisma.marketAverage.create({
+    data: { city: g.city, postalCode: g.postalCode, type: g.type, avgPricePerSqm: avg, sampleSize: g.samples.length },
+  });
+  groupsComputed++;
+}
+console.log(`  ${groupsComputed} market-avg groups computed (groups with ≥3 samples)`);
+
+console.log(`  Back-applying discountPct to ${properties.length} properties...`);
+let dcUpdated = 0;
+for (const p of properties) {
+  const g = byPostal.get(`${p.postalCode}|${p.type}`);
+  if (!g || g.samples.length < 3) continue;
+  const avg = Math.round(g.samples.reduce((a, b) => a + b, 0) / g.samples.length);
+  const discountPct = ((p.pricePerSqm - avg) / avg) * 100;
+  await prisma.property.update({
+    where: { id: p.id },
+    data: { pricePerSqmAvg: avg, avgMarketPrice: avg, discountPct },
+  });
+  dcUpdated++;
+}
+console.log(`  Updated discountPct on ${dcUpdated} properties`);
+
+// 7. Final stats
+console.log(`\n=== FINAL STATS ===`);
+const total = await prisma.property.count();
+const agg = await prisma.property.aggregate({ _avg: { price: true, discountPct: true, pricePerSqm: true } });
+const byCity = await prisma.$queryRaw`SELECT city, COUNT(*)::int as n FROM "Property" GROUP BY city ORDER BY n DESC LIMIT 10`;
+const byType = await prisma.$queryRaw`SELECT type, COUNT(*)::int as n FROM "Property" GROUP BY type ORDER BY n DESC`;
+
+console.log(`Total properties:     ${total}`);
+console.log(`Avg price:            € ${Math.round(agg._avg.price || 0).toLocaleString("nl-BE")}`);
+console.log(`Avg price/m²:         € ${Math.round(agg._avg.pricePerSqm || 0).toLocaleString("nl-BE")}`);
+console.log(`Avg discount vs mkt:  ${(agg._avg.discountPct || 0).toFixed(2)}%`);
+console.log(`\nTop 10 cities:`);
+for (const r of byCity) console.log(`  ${r.city.padEnd(20)} ${r.n}`);
+console.log(`\nBy type:`);
+for (const r of byType) console.log(`  ${r.type.padEnd(20)} ${r.n}`);
+
+console.log(`\nTotal elapsed: ${((Date.now() - start) / 1000).toFixed(1)}s`);
+await prisma.$disconnect();
