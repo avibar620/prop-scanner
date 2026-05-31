@@ -66,8 +66,25 @@ export default function PropertyDetailPage({
     load();
   }
 
-  async function sendSelf() {
-    await fetch(`/api/properties/${id}/email`, { method: "POST" });
+  function sendSelf() {
+    if (!data) return;
+    const p = data;
+    const subject = encodeURIComponent(`${t("appName")}: ${p.title}`);
+    const marketTotal = p.avgMarketPrice && p.sqm ? p.avgMarketPrice * p.sqm : null;
+    const discountAbs = Math.abs(p.discountPct ?? 0).toFixed(1);
+    const lines = [
+      p.title,
+      "",
+      `${t("price") || "Prijs"}: € ${p.price.toLocaleString("nl-BE")}`,
+      p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
+      marketTotal ? `${t("market")}: € ${marketTotal.toLocaleString("nl-BE")}` : "",
+      `${t("underMarket")}: ${discountAbs}%`,
+      `${p.address}, ${p.postalCode} ${p.city}`,
+      "",
+      `${t("viewOnSource")} ${p.source}: ${p.url}`,
+      `Prop-Scanner: https://prop-scanner-ahz6.vercel.app/properties/${p.id}`,
+    ].filter(Boolean).join("\n");
+    window.location.href = `mailto:avibar620@gmail.com?subject=${subject}&body=${encodeURIComponent(lines)}`;
   }
 
   if (loading) {
@@ -88,7 +105,10 @@ export default function PropertyDetailPage({
   }
 
   const p = data;
-  const images = p.imageUrls?.length ? p.imageUrls : p.imageUrl ? [p.imageUrl] : [];
+  // Combine main + gallery, dedup, fallback to placeholder
+  const FALLBACK_IMG = "https://picsum.photos/seed/prop-scanner-fallback/800/600";
+  const rawImages = [p.imageUrl, ...(p.imageUrls ?? [])].filter((u): u is string => !!u);
+  const images = rawImages.length > 0 ? Array.from(new Set(rawImages)) : [FALLBACK_IMG];
   const deal = dealLevel(p.discountPct);
   const verdict = aiVerdict(p.aiScore);
 

@@ -1,28 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useLang } from "@/app/providers";
 import { formatEUR, formatPerSqm, relativeTime, dealLevel, aiVerdict } from "@/lib/format";
 import type { Property } from "@prisma/client";
 
 const FALLBACK_IMG = "https://picsum.photos/seed/prop-scanner-fallback/800/600";
+const SELF_EMAIL = "avibar620@gmail.com";
+const SITE_BASE = "https://prop-scanner-ahz6.vercel.app";
 
 type Props = {
   property: Property;
   onOpenAgentEmail?: (property: Property) => void;
-  onSendSelf?: (propertyId: string) => void;
+  onSendSelf?: (propertyId: string) => void; // retained for back-compat; new flow uses mailto:
   onToggleFavorite?: (propertyId: string, current: boolean) => void;
 };
 
 export default function PropertyCard({
   property: p,
   onOpenAgentEmail,
-  onSendSelf,
   onToggleFavorite,
 }: Props) {
   const { t, lang } = useLang();
-  const router = useRouter();
   const [galleryIdx, setGalleryIdx] = useState(0);
   const [imgErr, setImgErr] = useState(false);
 
@@ -34,9 +33,31 @@ export default function PropertyCard({
   const isNew = Date.now() - new Date(p.firstSeenAt).getTime() < 24 * 60 * 60 * 1000;
   const discountAbs = Math.abs(p.discountPct ?? 0).toFixed(0);
   const savings = p.avgMarketPrice ? p.avgMarketPrice * (p.sqm ?? 0) - p.price : null;
+  // Market total: price-per-m² avg × this property's sqm
+  const marketTotal = p.avgMarketPrice && p.sqm ? p.avgMarketPrice * p.sqm : null;
 
   function goToDetail() {
-    router.push(`/properties/${p.id}`);
+    window.open(`/properties/${p.id}`, "_blank", "noopener,noreferrer");
+  }
+
+  function sendSelfEmail() {
+    const subject = encodeURIComponent(`${t("appName")}: ${p.title}`);
+    const lines = [
+      `${p.title}`,
+      "",
+      `${t("price") || "Prijs"}: € ${p.price.toLocaleString("nl-BE")}`,
+      p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
+      `${t("market")}: € ${(marketTotal ?? 0).toLocaleString("nl-BE")}${marketTotal ? "" : " (—)"}`,
+      `${t("underMarket")}: ${discountAbs}%`,
+      `${p.address}, ${p.postalCode} ${p.city}`,
+      "",
+      `${t("viewOnSource")} ${p.source}: ${p.url}`,
+      `Prop-Scanner: ${SITE_BASE}/properties/${p.id}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const body = encodeURIComponent(lines);
+    window.location.href = `mailto:${SELF_EMAIL}?subject=${subject}&body=${body}`;
   }
 
   function stop<T>(fn: (...a: T[]) => void) {
@@ -137,12 +158,12 @@ export default function PropertyCard({
           <div className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
             {formatEUR(p.price)}
           </div>
-          {p.avgMarketPrice && p.sqm && (
+          {marketTotal && (
             <div
-              className="text-xs line-through"
+              className="text-sm"
               style={{ color: "var(--text-secondary)" }}
             >
-              {t("market")}: {formatEUR(p.avgMarketPrice * p.sqm)}
+              ({t("market")}: {formatEUR(marketTotal)})
             </div>
           )}
         </div>
@@ -170,7 +191,7 @@ export default function PropertyCard({
         </div>
 
         <div className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-          {relativeTime(p.firstSeenAt, lang)}
+          {relativeTime(p.publishedAt, lang, p.firstSeenAt)}
         </div>
 
         {/* Split status */}
@@ -203,7 +224,7 @@ export default function PropertyCard({
           <button
             type="button"
             className="ps-btn-ghost text-xs"
-            onClick={stop(() => onSendSelf?.(p.id))}
+            onClick={stop(sendSelfEmail)}
             title={t("sendEmail")}
           >
             📧
