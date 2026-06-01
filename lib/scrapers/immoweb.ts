@@ -32,10 +32,15 @@ export async function scrapeImmoweb(
     return [];
   }
 
-  // Dynamic import keeps Playwright out of normal build graphs.
+  // Load playwright via createRequire so tsx's transpiled context can resolve
+  // the bare specifier. The simpler `await import("playwright")` fails in CI
+  // because tsx serves our module from a `data:` URL whose base scheme isn't
+  // hierarchical, so bare-specifier resolution can't kick in.
   let playwright: typeof import("playwright");
   try {
-    playwright = await import("playwright");
+    const { createRequire } = await import("node:module");
+    const require = createRequire(import.meta.url);
+    playwright = require("playwright");
   } catch (err) {
     console.error("[immoweb] playwright not available, skipping:", err instanceof Error ? err.message : err);
     return [];
