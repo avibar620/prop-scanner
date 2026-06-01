@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLang } from "@/app/providers";
 import { formatEUR, formatPerSqm, relativeTime, dealLevel, aiVerdict } from "@/lib/format";
+import { triggerMailto } from "@/lib/mailto";
 import type { Property } from "@prisma/client";
 
 const FALLBACK_IMG = "https://picsum.photos/seed/prop-scanner-fallback/800/600";
@@ -45,9 +46,9 @@ export default function PropertyCard({
     const lines = [
       `${p.title}`,
       "",
-      `${t("price") || "Prijs"}: € ${p.price.toLocaleString("nl-BE")}`,
+      `Prijs: € ${p.price.toLocaleString("nl-BE")}`,
       p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
-      `${t("market")}: € ${(marketTotal ?? 0).toLocaleString("nl-BE")}${marketTotal ? "" : " (—)"}`,
+      marketTotal ? `${t("market")}: € ${marketTotal.toLocaleString("nl-BE")}` : "",
       `${t("underMarket")}: ${discountAbs}%`,
       `${p.address}, ${p.postalCode} ${p.city}`,
       "",
@@ -57,7 +58,7 @@ export default function PropertyCard({
       .filter(Boolean)
       .join("\n");
     const body = encodeURIComponent(lines);
-    window.location.href = `mailto:${SELF_EMAIL}?subject=${subject}&body=${body}`;
+    triggerMailto(`mailto:${SELF_EMAIL}?subject=${subject}&body=${body}`);
   }
 
   function stop<T>(fn: (...a: T[]) => void) {

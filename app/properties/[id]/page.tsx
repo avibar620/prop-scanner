@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import AgentEmailModal from "@/components/AgentEmailModal";
 import PriceHistoryChart from "@/components/PriceHistoryChart";
 import { formatEUR, formatPerSqm, dealLevel, aiVerdict } from "@/lib/format";
+import { triggerMailto } from "@/lib/mailto";
 import type { Property, PriceHistory, Note } from "@prisma/client";
 
 const PropertyMap = dynamic(() => import("@/components/PropertyMap"), { ssr: false });
@@ -84,7 +85,7 @@ export default function PropertyDetailPage({
       `${t("viewOnSource")} ${p.source}: ${p.url}`,
       `Prop-Scanner: https://prop-scanner-ahz6.vercel.app/properties/${p.id}`,
     ].filter(Boolean).join("\n");
-    window.location.href = `mailto:avibar620@gmail.com?subject=${subject}&body=${encodeURIComponent(lines)}`;
+    triggerMailto(`mailto:avibar620@gmail.com?subject=${subject}&body=${encodeURIComponent(lines)}`);
   }
 
   if (loading) {

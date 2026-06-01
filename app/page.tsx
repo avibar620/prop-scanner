@@ -150,7 +150,10 @@ export default function HomePage() {
                     type="button"
                     className="ps-btn-secondary"
                     disabled={page === 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                   >
                     ‹
                   </button>
@@ -161,7 +164,10 @@ export default function HomePage() {
                     type="button"
                     className="ps-btn-secondary"
                     disabled={page >= data.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
+                    onClick={() => {
+                      setPage((p) => p + 1);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                   >
                     ›
                   </button>

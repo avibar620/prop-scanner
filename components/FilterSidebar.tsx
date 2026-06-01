@@ -29,7 +29,7 @@ const EMPTY: Filters = {
   sort: "highestDiscount",
 };
 
-type Area = { id: string; name: string; city: string; postalCode: string | null; isActive: boolean };
+type CityRow = { city: string; count: number };
 type Source = { id: string; name: string; isActive: boolean };
 
 export default function FilterSidebar({
@@ -43,14 +43,16 @@ export default function FilterSidebar({
 }) {
   const { t } = useLang();
   const [draft, setDraft] = useState<Filters>(value);
-  const [areas, setAreas] = useState<Area[]>([]);
+  const [cities, setCities] = useState<CityRow[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
 
   useEffect(() => {
-    fetch("/api/areas")
+    // /api/cities returns the actual cities present in Property table, with counts.
+    // Falls back to /api/areas if the new endpoint isn't deployed yet.
+    fetch("/api/cities")
       .then((r) => (r.ok ? r.json() : []))
-      .then(setAreas)
-      .catch(() => setAreas([]));
+      .then(setCities)
+      .catch(() => setCities([]));
     fetch("/api/sources")
       .then((r) => (r.ok ? r.json() : []))
       .then(setSources)
@@ -78,22 +80,20 @@ export default function FilterSidebar({
         />
       </Section>
 
-      {/* Areas */}
-      {areas.length > 0 && (
+      {/* City — populated from real cities in the Property table */}
+      {cities.length > 0 && (
         <Section title={t("area")}>
           <select
             className="ps-input"
-            value={draft.postalCode}
-            onChange={(e) => update("postalCode", e.target.value)}
+            value={draft.city}
+            onChange={(e) => update("city", e.target.value)}
           >
             <option value="">{t("allRooms")}</option>
-            {areas
-              .filter((a) => a.isActive && a.postalCode)
-              .map((a) => (
-                <option key={a.id} value={a.postalCode ?? ""}>
-                  {a.name} ({a.postalCode})
-                </option>
-              ))}
+            {cities.map((c) => (
+              <option key={c.city} value={c.city}>
+                {c.city} ({c.count})
+              </option>
+            ))}
           </select>
         </Section>
       )}
