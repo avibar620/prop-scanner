@@ -179,7 +179,7 @@ export default function PropertyDetailPage({
 
               <div className="flex items-baseline gap-3 mb-1">
                 <div className="text-3xl font-bold">{formatEUR(p.price)}</div>
-                {p.discountPct != null && (
+                {p.discountPct != null && Math.abs(p.discountPct) >= 5 && (
                   <span
                     className="ps-pill"
                     style={{ background: deal.color, color: "#fff" }}
@@ -192,9 +192,9 @@ export default function PropertyDetailPage({
                 {formatPerSqm(p.pricePerSqm)}
               </div>
 
-              {p.avgMarketPrice && (
+              {p.discountPct != null && p.avgMarketPrice != null && (
                 <div className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
-                  Markt: {formatPerSqm(p.avgMarketPrice)}
+                  {t("market")}: {formatPerSqm(p.avgMarketPrice)}
                 </div>
               )}
 

@@ -33,9 +33,13 @@ export default function PropertyCard({
   const verdict = aiVerdict(p.aiScore);
   const isNew = Date.now() - new Date(p.firstSeenAt).getTime() < 24 * 60 * 60 * 1000;
   const discountAbs = Math.abs(p.discountPct ?? 0).toFixed(0);
-  const savings = p.avgMarketPrice ? p.avgMarketPrice * (p.sqm ?? 0) - p.price : null;
-  // Market total: price-per-m² avg × this property's sqm
-  const marketTotal = p.avgMarketPrice && p.sqm ? p.avgMarketPrice * p.sqm : null;
+  // Show market row only when we have both: a market €/m² avg AND a usable discountPct.
+  // Compare apples-to-apples in €/m² (NOT total prices) — total comparison was
+  // misleading on huge commercial properties (e.g. 1565m² × €2596/m² = "€4M market"
+  // even though the property itself listed at €215k).
+  const showMarket = p.discountPct != null && p.avgMarketPrice != null;
+  // Hide the discount badge when it's null OR the magnitude is so small it's noise.
+  const showDiscountBadge = p.discountPct != null && Math.abs(p.discountPct) >= 5;
 
   function goToDetail() {
     window.open(`/properties/${p.id}`, "_blank", "noopener,noreferrer");
@@ -48,8 +52,8 @@ export default function PropertyCard({
       "",
       `Prijs: € ${p.price.toLocaleString("nl-BE")}`,
       p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
-      marketTotal ? `${t("market")}: € ${marketTotal.toLocaleString("nl-BE")}` : "",
-      `${t("underMarket")}: ${discountAbs}%`,
+      p.avgMarketPrice ? `${t("market")}: € ${p.avgMarketPrice.toLocaleString("nl-BE")}/m²` : "",
+      p.discountPct != null ? `${t("underMarket")}: ${discountAbs}%` : "",
       `${p.address}, ${p.postalCode} ${p.city}`,
       "",
       `${t("viewOnSource")} ${p.source}: ${p.url}`,
@@ -82,8 +86,8 @@ export default function PropertyCard({
           />
         </button>
 
-        {/* Discount badge — only shown when we have an actual market-derived discount */}
-        {p.discountPct != null && (
+        {/* Discount badge — only when meaningfully under market (≥5%) */}
+        {showDiscountBadge && (
           <div
             className="ps-pill absolute top-3 left-3"
             style={{ background: deal.color, color: "#fff" }}
@@ -171,29 +175,23 @@ export default function PropertyCard({
           {p.title}
         </button>
 
-        <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+        <div className="mt-2">
           <div className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
             {formatEUR(p.price)}
           </div>
-          {marketTotal && (
-            <div
-              className="text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              ({t("market")}: {formatEUR(marketTotal)})
-            </div>
-          )}
         </div>
-
-        {savings && savings > 0 && (
-          <div className="text-xs font-semibold mt-0.5" style={{ color: deal.color }}>
-            {t("savings")}: {formatEUR(Math.round(savings))}
-          </div>
-        )}
 
         {p.pricePerSqm && (
           <div className="mt-1.5 text-base font-bold" style={{ color: "var(--text-primary)" }}>
             {formatPerSqm(p.pricePerSqm)}
+          </div>
+        )}
+
+        {/* Market comparison row — €/m² (apples-to-apples). Hidden when we
+            don't have a trustworthy market value for this property. */}
+        {showMarket && (
+          <div className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+            {t("market")}: {formatPerSqm(p.avgMarketPrice!)}
           </div>
         )}
 

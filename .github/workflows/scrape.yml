@@ -1,10 +1,11 @@
 name: Scrape Belgian Properties
 
-# Scrape Zimmo + recompute market averages every 6 hours.
-# Runs against the production Neon DB. Requires repo secrets:
+# Runs Zimmo + Immoweb (with Playwright) every 6 hours against the production
+# Neon DB. Requires repo secrets:
 #   DATABASE_URL       — Neon connection string
-#   ANTHROPIC_API_KEY  — for AI re-analysis (optional but recommended)
+#   ANTHROPIC_API_KEY  — for AI re-analysis (optional, picked up by ai.ts)
 #
+# Add these at: https://github.com/avibar620/prop-scanner/settings/secrets/actions
 # Manual trigger: Actions tab → "Scrape Belgian Properties" → Run workflow.
 
 on:
@@ -15,7 +16,7 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # plenty of headroom for 40 areas × ~12 pages × ~2s
+    timeout-minutes: 45  # headroom for 40 areas × pagination + Immoweb Playwright runs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,8 +27,12 @@ jobs:
         run: npm ci --legacy-peer-deps
       - name: Generate Prisma client
         run: npx prisma generate
-      - name: Scrape Zimmo + recompute market averages
+      - name: Install Playwright browser (chromium only)
+        # --with-deps installs the system libraries Chromium needs on Ubuntu.
+        run: npx playwright install --with-deps chromium
+      - name: Scrape Zimmo + Immoweb + recompute market averages
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          USE_PLAYWRIGHT: "true"  # turns on Immoweb scraper
         run: npx tsx scripts/scrape-and-replace.mjs

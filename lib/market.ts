@@ -30,6 +30,20 @@ function roomsBucket(rooms: number | null): "1" | "2" | "3" | "4+" {
   return "4+";
 }
 
+function sizeBucket(sqm: number | null): "tiny" | "small" | "medium" | "large" | "xlarge" | "unknown" {
+  if (sqm == null || sqm <= 0) return "unknown";
+  if (sqm <= 60) return "tiny";
+  if (sqm <= 120) return "small";
+  if (sqm <= 250) return "medium";
+  if (sqm <= 500) return "large";
+  return "xlarge";
+}
+
+/** Hard ceiling on discount magnitude. Anything beyond this is almost
+ * certainly a category mismatch (e.g., warehouse priced as commercial,
+ * forest priced as house) — better to show "no data" than wild numbers. */
+const MAX_REASONABLE_DISCOUNT_PCT = 55;
+
 function winsorizedAvg(samples: number[]): { avg: number; n: number } | null {
   if (samples.length < 5) return null;
   const init = samples.reduce((a, b) => a + b, 0) / samples.length;
@@ -50,34 +64,46 @@ function push<T>(m: Map<string, T[]>, key: string, val: T) {
 export async function recalculateMarketAverages(): Promise<{
   groupsComputed: number;
   propertiesUpdated: number;
-  fallbackBreakdown: Record<"L1" | "L2" | "L3" | "L4" | "none", number>;
+  cappedOut: number;
+  fallbackBreakdown: Record<"L0" | "L1" | "L2" | "L3" | "L4" | "L5" | "none", number>;
 }> {
   const props = await prisma.property.findMany({
     where: { isActive: true, pricePerSqm: { not: null } },
-    select: { id: true, city: true, postalCode: true, type: true, rooms: true, pricePerSqm: true },
+    select: { id: true, city: true, postalCode: true, type: true, rooms: true, sqm: true, pricePerSqm: true },
   });
 
+  const L0 = new Map<string, Sample[]>(); // postalCode|type|sizeBucket|roomsBucket — MOST specific
   const L1 = new Map<string, Sample[]>(); // postalCode|type|roomsBucket
-  const L2 = new Map<string, Sample[]>(); // postalCode|type
-  const L3 = new Map<string, Sample[]>(); // city|type|roomsBucket
-  const L4 = new Map<string, Sample[]>(); // city|type
+  const L2 = new Map<string, Sample[]>(); // postalCode|type|sizeBucket
+  const L3 = new Map<string, Sample[]>(); // postalCode|type
+  const L4 = new Map<string, Sample[]>(); // city|type|sizeBucket
+  const L5 = new Map<string, Sample[]>(); // city|type
 
   for (const p of props) {
     if (!p.pricePerSqm) continue;
     const rb = roomsBucket(p.rooms);
+    const sb = sizeBucket(p.sqm);
     const s: Sample = { id: p.id, pricePerSqm: p.pricePerSqm, city: p.city };
+    push(L0, `${p.postalCode}|${p.type}|${sb}|${rb}`, s);
     push(L1, `${p.postalCode}|${p.type}|${rb}`, s);
-    push(L2, `${p.postalCode}|${p.type}`, s);
-    push(L3, `${p.city}|${p.type}|${rb}`, s);
-    push(L4, `${p.city}|${p.type}`, s);
+    push(L2, `${p.postalCode}|${p.type}|${sb}`, s);
+    push(L3, `${p.postalCode}|${p.type}`, s);
+    push(L4, `${p.city}|${p.type}|${sb}`, s);
+    push(L5, `${p.city}|${p.type}`, s);
   }
 
   // Cache winsorized averages per bucket key (compute once, lookup many)
+  const avgL0 = new Map<string, number>();
   const avgL1 = new Map<string, number>();
   const avgL2 = new Map<string, number>();
   const avgL3 = new Map<string, number>();
   const avgL4 = new Map<string, number>();
+  const avgL5 = new Map<string, number>();
 
+  for (const [k, samples] of L0) {
+    const r = winsorizedAvg(samples.map((s) => s.pricePerSqm));
+    if (r) avgL0.set(k, r.avg);
+  }
   for (const [k, samples] of L1) {
     const r = winsorizedAvg(samples.map((s) => s.pricePerSqm));
     if (r) avgL1.set(k, r.avg);
@@ -94,12 +120,17 @@ export async function recalculateMarketAverages(): Promise<{
     const r = winsorizedAvg(samples.map((s) => s.pricePerSqm));
     if (r) avgL4.set(k, r.avg);
   }
+  for (const [k, samples] of L5) {
+    const r = winsorizedAvg(samples.map((s) => s.pricePerSqm));
+    if (r) avgL5.set(k, r.avg);
+  }
 
-  // Refresh the MarketAverage table from L2 (postalCode × type)
+  // Refresh the MarketAverage table from L3 (postalCode × type) — schema
+  // @@unique is on (postalCode, type) so this level fits.
   await prisma.marketAverage.deleteMany({});
   let groupsComputed = 0;
-  for (const [k, samples] of L2) {
-    const avg = avgL2.get(k);
+  for (const [k, samples] of L3) {
+    const avg = avgL3.get(k);
     if (!avg) continue;
     const [postalCode, type] = k.split("|");
     const city = samples[0]?.city ?? "?";
@@ -111,19 +142,31 @@ export async function recalculateMarketAverages(): Promise<{
 
   // Back-apply each property's discountPct using most-specific bucket available
   let propertiesUpdated = 0;
-  const breakdown: Record<"L1" | "L2" | "L3" | "L4" | "none", number> = {
-    L1: 0, L2: 0, L3: 0, L4: 0, none: 0,
+  let cappedOut = 0;
+  const breakdown: Record<"L0" | "L1" | "L2" | "L3" | "L4" | "L5" | "none", number> = {
+    L0: 0, L1: 0, L2: 0, L3: 0, L4: 0, L5: 0, none: 0,
   };
   for (const p of props) {
     if (!p.pricePerSqm) continue;
     const rb = roomsBucket(p.rooms);
-    const avg =
-      avgL1.get(`${p.postalCode}|${p.type}|${rb}`) ??
-      avgL2.get(`${p.postalCode}|${p.type}`) ??
-      avgL3.get(`${p.city}|${p.type}|${rb}`) ??
-      avgL4.get(`${p.city}|${p.type}`);
+    const sb = sizeBucket(p.sqm);
 
-    if (!avg) {
+    let avg: number | undefined;
+    let level: keyof typeof breakdown = "none";
+    const k0 = `${p.postalCode}|${p.type}|${sb}|${rb}`;
+    const k1 = `${p.postalCode}|${p.type}|${rb}`;
+    const k2 = `${p.postalCode}|${p.type}|${sb}`;
+    const k3 = `${p.postalCode}|${p.type}`;
+    const k4 = `${p.city}|${p.type}|${sb}`;
+    const k5 = `${p.city}|${p.type}`;
+    if ((avg = avgL0.get(k0)) !== undefined) level = "L0";
+    else if ((avg = avgL1.get(k1)) !== undefined) level = "L1";
+    else if ((avg = avgL2.get(k2)) !== undefined) level = "L2";
+    else if ((avg = avgL3.get(k3)) !== undefined) level = "L3";
+    else if ((avg = avgL4.get(k4)) !== undefined) level = "L4";
+    else if ((avg = avgL5.get(k5)) !== undefined) level = "L5";
+
+    if (avg === undefined) {
       breakdown.none += 1;
       // Clear stale discountPct so old (incorrect) values don't linger
       await prisma.property.update({
@@ -133,21 +176,28 @@ export async function recalculateMarketAverages(): Promise<{
       continue;
     }
 
-    // Track which level was used (informational)
-    if (avgL1.has(`${p.postalCode}|${p.type}|${rb}`)) breakdown.L1 += 1;
-    else if (avgL2.has(`${p.postalCode}|${p.type}`)) breakdown.L2 += 1;
-    else if (avgL3.has(`${p.city}|${p.type}|${rb}`)) breakdown.L3 += 1;
-    else breakdown.L4 += 1;
+    let discountPct: number | null = ((p.pricePerSqm - avg) / avg) * 100;
 
-    const discountPct = ((p.pricePerSqm - avg) / avg) * 100;
+    // Cap: anything beyond ±55% is almost certainly a category mismatch.
+    // Clear it rather than show misleading "↓98%" badges.
+    if (Math.abs(discountPct) > MAX_REASONABLE_DISCOUNT_PCT) {
+      discountPct = null;
+      cappedOut += 1;
+    }
+
+    breakdown[level] += 1;
     await prisma.property.update({
       where: { id: p.id },
-      data: { pricePerSqmAvg: avg, avgMarketPrice: avg, discountPct },
+      data: {
+        pricePerSqmAvg: avg,
+        avgMarketPrice: discountPct !== null ? avg : null, // hide market estimate when discount was capped
+        discountPct,
+      },
     });
     propertiesUpdated += 1;
   }
 
-  return { groupsComputed, propertiesUpdated, fallbackBreakdown: breakdown };
+  return { groupsComputed, propertiesUpdated, cappedOut, fallbackBreakdown: breakdown };
 }
 
 /**
