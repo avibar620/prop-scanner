@@ -82,13 +82,15 @@ export default function PropertyCard({
           />
         </button>
 
-        {/* Discount badge */}
-        <div
-          className="ps-pill absolute top-3 left-3"
-          style={{ background: deal.color, color: "#fff" }}
-        >
-          ↓ {discountAbs}% {t("underMarket")}
-        </div>
+        {/* Discount badge — only shown when we have an actual market-derived discount */}
+        {p.discountPct != null && (
+          <div
+            className="ps-pill absolute top-3 left-3"
+            style={{ background: deal.color, color: "#fff" }}
+          >
+            ↓ {discountAbs}% {t("underMarket")}
+          </div>
+        )}
 
         {/* Source pill */}
         <div
@@ -182,7 +184,9 @@ export default function PropertyCard({
         )}
 
         <div className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-          {p.city} · {p.municipality} · {p.postalCode}
+          {[p.city, p.municipality, p.postalCode]
+            .filter((v, i, arr) => v && arr.indexOf(v) === i)
+            .join(" · ")}
         </div>
 
         <div className="mt-1 text-xs flex flex-wrap gap-3" style={{ color: "var(--text-secondary)" }}>

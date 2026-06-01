@@ -161,12 +161,43 @@ function parseCard(
   };
 }
 
-function inferType(title: string): string {
+/**
+ * Heuristic type-from-title classifier (Dutch/Flemish Zimmo titles).
+ * Order matters: most specific first. Last resort = "house".
+ */
+export function inferType(title: string): string {
   const t = title.toLowerCase();
+  // Multi-unit residential
   if (t.includes("opbrengst") || t.includes("appartementsgebouw")) return "apartmentBuilding";
-  if (t.includes("handelspand") || t.includes("kantoor") || t.includes("commercieel")) return "commercial";
-  if (t.includes("bouwgrond") || t.includes("grond")) return "land";
-  if (t.includes("appartement") || t.includes("studio") || t.includes("flat")) return "apartment";
-  if (t.includes("huis") || t.includes("woning") || t.includes("villa")) return "house";
+  // Commercial / industrial (broader catch — added bedrijf, loods, magazijn, garage, hangar, atelier)
+  if (
+    t.includes("handelspand") ||
+    t.includes("kantoor") ||
+    t.includes("commercieel") ||
+    t.includes("commercieel gebouw") ||
+    t.includes("bedrijf") ||           // bedrijfsgebouw, bedrijfspand
+    t.includes("loods") ||
+    t.includes("magazijn") ||
+    t.includes("atelier") ||
+    t.includes("hangar") ||
+    t.includes("winkel") ||
+    t.includes("horeca")
+  ) return "commercial";
+  // Land — added bos (forest), weide (meadow), perceel (plot), tuingrond, akker, landbouwgrond
+  if (
+    t.includes("bouwgrond") ||
+    t.includes("bouwperceel") ||
+    t.includes("perceel") ||
+    t.includes("bos") ||
+    t.includes("weide") ||
+    t.includes("akker") ||
+    t.includes("landbouwgrond") ||
+    t.includes("tuingrond") ||
+    t.includes("grond")               // generic "grond" last so specific terms win
+  ) return "land";
+  // Apartments
+  if (t.includes("appartement") || t.includes("studio") || t.includes("flat") || t.includes("duplex") || t.includes("penthouse")) return "apartment";
+  // Houses
+  if (t.includes("huis") || t.includes("woning") || t.includes("villa") || t.includes("herenwoning") || t.includes("rijhuis")) return "house";
   return "house";
 }

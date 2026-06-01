@@ -159,7 +159,7 @@ export async function getBestDeals(limit = 10) {
 }
 
 /**
- * Process up to 15 properties per run: must have discount > 15% AND no analysis yet.
+ * Process up to 50 properties per run: must have discount > 15% AND no analysis yet.
  */
 export async function analyzeNewProperties(): Promise<{ processed: number; errors: number }> {
   const candidates = await prisma.property.findMany({
@@ -169,7 +169,7 @@ export async function analyzeNewProperties(): Promise<{ processed: number; error
       discountPct: { lt: -15 }, // remember: discountPct is negative for under-market
     },
     orderBy: { discountPct: "asc" },
-    take: 15,
+    take: 50,
   });
 
   let processed = 0;

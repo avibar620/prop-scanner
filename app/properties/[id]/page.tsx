@@ -179,12 +179,14 @@ export default function PropertyDetailPage({
 
               <div className="flex items-baseline gap-3 mb-1">
                 <div className="text-3xl font-bold">{formatEUR(p.price)}</div>
-                <span
-                  className="ps-pill"
-                  style={{ background: deal.color, color: "#fff" }}
-                >
-                  ↓ {Math.abs(p.discountPct ?? 0).toFixed(0)}%
-                </span>
+                {p.discountPct != null && (
+                  <span
+                    className="ps-pill"
+                    style={{ background: deal.color, color: "#fff" }}
+                  >
+                    ↓ {Math.abs(p.discountPct).toFixed(0)}%
+                  </span>
+                )}
               </div>
               <div className="text-base font-semibold mb-2">
                 {formatPerSqm(p.pricePerSqm)}
