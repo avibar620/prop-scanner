@@ -5,12 +5,22 @@ import { prisma } from "@/lib/prisma";
 const MODEL = "claude-sonnet-4-5-20250929";
 
 const SYSTEM_PROMPT =
-  "Je bent een Belgische vastgoedanalist. Analyseer objectief. " +
-  "Antwoord in het Nederlands. Max 4 zinnen. " +
-  "Geef altijd een score van 1 tot 10 op een aparte regel als 'Score: X'. " +
-  "Voor opbrengsteigendommen (apartmentBuilding): geef ook op een aparte regel " +
-  "'Splitsing: official' | 'Splitsing: not_official' | 'Splitsing: partial' | 'Splitsing: not_mentioned' " +
-  "en op de regel daaronder 'Splitsing-details: <korte uitleg>'.";
+  "Je bent een Belgische vastgoedanalist. Analyseer objectief en kort. Antwoord in het Nederlands.\n\n" +
+  "Geef je antwoord in dit EXACTE format (gebruik de Engelse labels precies):\n\n" +
+  "Score: <1-10>\n" +
+  "Recommendation: <ja | misschien | nee>\n" +
+  "Pros:\n" +
+  "- <punt 1 — max 12 woorden>\n" +
+  "- <punt 2 — max 12 woorden>\n" +
+  "- <punt 3 — max 12 woorden>\n" +
+  "Cons:\n" +
+  "- <risico 1 — max 12 woorden>\n" +
+  "- <risico 2 — max 12 woorden>\n" +
+  "- <risico 3 — max 12 woorden>\n" +
+  "Summary: <1-2 zinnen samenvatting voor de gebruiker>\n\n" +
+  "Voor opbrengsteigendommen (apartmentBuilding): voeg toe:\n" +
+  "Splitsing: <official | not_official | partial | not_mentioned>\n" +
+  "Splitsing-details: <korte uitleg, max 15 woorden>";
 
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -166,7 +176,7 @@ export async function analyzeNewProperties(): Promise<{ processed: number; error
     where: {
       aiAnalysis: null,
       isActive: true,
-      discountPct: { lt: -15 }, // remember: discountPct is negative for under-market
+      discountPct: { lt: -5 }, // remember: discountPct is negative for under-market
     },
     orderBy: { discountPct: "asc" },
     take: 50,

@@ -110,6 +110,20 @@ export default function PropertyCard({
           </div>
         )}
 
+        {/* "Top deal" badge — AI scored 7+ */}
+        {p.aiScore != null && p.aiScore >= 7 && (
+          <div
+            className="ps-pill absolute bottom-3 left-3"
+            style={{
+              background: "var(--deal-excellent)",
+              color: "#fff",
+              ...(isNew ? { bottom: 44 } : {}), // stack above NEW if both shown
+            }}
+          >
+            🏆 {t("topDeal")}
+          </div>
+        )}
+
         {/* Favorite */}
         <button
           type="button"
@@ -178,7 +192,7 @@ export default function PropertyCard({
         )}
 
         {p.pricePerSqm && (
-          <div className="mt-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          <div className="mt-1.5 text-base font-bold" style={{ color: "var(--text-primary)" }}>
             {formatPerSqm(p.pricePerSqm)}
           </div>
         )}

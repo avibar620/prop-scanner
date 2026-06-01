@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const type = sp.get("type")?.trim();
   const rooms = sp.get("rooms")?.trim();
   const minDiscount = sp.get("minDiscount") ? parseInt(sp.get("minDiscount")!, 10) : 0;
+  const maxPricePerSqm = sp.get("maxPricePerSqm") ? parseInt(sp.get("maxPricePerSqm")!, 10) : 0;
   const source = sp.get("source")?.trim();
   const tag = sp.get("tag")?.trim();
   const favoritesOnly = sp.get("favorites") === "1" || sp.get("favorites") === "true";
@@ -62,6 +63,9 @@ export async function GET(req: NextRequest) {
   if (!streetMode && minDiscount > 0) {
     where.discountPct = { lte: -minDiscount };
   }
+  if (maxPricePerSqm > 0) {
+    where.pricePerSqm = { lte: maxPricePerSqm };
+  }
 
   // Sorting
   let orderBy: Prisma.PropertyOrderByWithRelationInput | Prisma.PropertyOrderByWithRelationInput[];
@@ -71,6 +75,9 @@ export async function GET(req: NextRequest) {
       break;
     case "lowestPrice":
       orderBy = { price: "asc" };
+      break;
+    case "lowestPricePerSqm":
+      orderBy = { pricePerSqm: "asc" };
       break;
     case "bestAiDeals":
       orderBy = [{ aiScore: "desc" }, { discountPct: "asc" }];

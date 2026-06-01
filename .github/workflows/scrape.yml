@@ -1,0 +1,33 @@
+name: Scrape Belgian Properties
+
+# Scrape Zimmo + recompute market averages every 6 hours.
+# Runs against the production Neon DB. Requires repo secrets:
+#   DATABASE_URL       — Neon connection string
+#   ANTHROPIC_API_KEY  — for AI re-analysis (optional but recommended)
+#
+# Manual trigger: Actions tab → "Scrape Belgian Properties" → Run workflow.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # every 6h at minute 0
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # plenty of headroom for 40 areas × ~12 pages × ~2s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Scrape Zimmo + recompute market averages
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx tsx scripts/scrape-and-replace.mjs

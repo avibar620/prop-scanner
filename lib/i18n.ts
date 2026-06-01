@@ -88,6 +88,7 @@ const nl: Dict = {
   highestDiscount: "Hoogste korting",
   newest: "Nieuwste eerst",
   lowestPrice: "Laagste prijs",
+  lowestPricePerSqm: "Laagste €/m²",
   bestAiDeals: "Beste AI deals",
 
   // alerts
@@ -132,6 +133,7 @@ const nl: Dict = {
   error: "Er is iets misgegaan.",
   success: "Gelukt.",
   newProperty: "NIEUW",
+  topDeal: "Topdeal",
   resultsCount: "panden gevonden",
   list: "Lijst",
   map: "Kaart",
@@ -229,6 +231,7 @@ const en: Dict = {
   highestDiscount: "Highest discount",
   newest: "Newest first",
   lowestPrice: "Lowest price",
+  lowestPricePerSqm: "Lowest €/m²",
   bestAiDeals: "Best AI deals",
 
   alertRules: "Alert rules",
@@ -268,6 +271,7 @@ const en: Dict = {
   error: "Something went wrong.",
   success: "Success.",
   newProperty: "NEW",
+  topDeal: "Top deal",
   resultsCount: "properties found",
   list: "List",
   map: "Map",
@@ -361,6 +365,7 @@ const he: Dict = {
   highestDiscount: "הנחה הכי גבוהה",
   newest: "החדשים ביותר",
   lowestPrice: "המחיר הנמוך ביותר",
+  lowestPricePerSqm: "מחיר נמוך למ״ר",
   bestAiDeals: "עסקאות AI הטובות",
 
   alertRules: "כללי התראה",
@@ -400,6 +405,7 @@ const he: Dict = {
   error: "משהו השתבש.",
   success: "הצליח.",
   newProperty: "חדש",
+  topDeal: "מציאה",
   resultsCount: "נכסים נמצאו",
   list: "רשימה",
   map: "מפה",

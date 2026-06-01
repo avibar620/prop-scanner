@@ -62,7 +62,7 @@ if (!session.user) {
 console.log(`Logged in as ${session.user.email} (${session.user.role})`);
 
 const totalEligible = await prisma.property.count({
-  where: { aiAnalysis: null, isActive: true, discountPct: { lt: -15 } },
+  where: { aiAnalysis: null, isActive: true, discountPct: { lt: -5 } },
 });
 const totalScored = await prisma.property.count({ where: { aiScore: { not: null } } });
 console.log(`Total candidates needing AI: ${totalEligible}`);
@@ -76,7 +76,7 @@ const startTs = Date.now();
 while (processed + errors < MAX_TOTAL) {
   // Fetch a fresh batch from DB (since each analyze writes back, next batch excludes them)
   const batch = await prisma.property.findMany({
-    where: { aiAnalysis: null, isActive: true, discountPct: { lt: -15 } },
+    where: { aiAnalysis: null, isActive: true, discountPct: { lt: -5 } },
     orderBy: { discountPct: "asc" }, // most-discounted first
     take: CONCURRENCY,
     select: { id: true, title: true, discountPct: true, city: true, price: true },

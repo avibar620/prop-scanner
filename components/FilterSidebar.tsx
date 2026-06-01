@@ -10,6 +10,7 @@ export type Filters = {
   type: string;
   rooms: string;
   minDiscount: number;
+  maxPricePerSqm: number;
   source: string;
   favorites: boolean;
   aiOnly: boolean;
@@ -23,6 +24,7 @@ const EMPTY: Filters = {
   type: "",
   rooms: "",
   minDiscount: 0,
+  maxPricePerSqm: 0,
   source: "",
   favorites: false,
   aiOnly: false,
@@ -141,6 +143,26 @@ export default function FilterSidebar({
         </div>
       </Section>
 
+      {/* Max price per m² */}
+      <Section title={t("maxPricePerSqm")}>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            className="ps-input"
+            min={0}
+            step={100}
+            placeholder="0 = elke"
+            value={draft.maxPricePerSqm || ""}
+            onChange={(e) =>
+              update("maxPricePerSqm", Math.max(0, parseInt(e.target.value || "0", 10)))
+            }
+          />
+          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            €/m²
+          </span>
+        </div>
+      </Section>
+
       {/* Rooms */}
       <Section title={t("rooms")}>
         <div className="flex flex-wrap gap-1.5">
@@ -215,6 +237,7 @@ export default function FilterSidebar({
           <option value="highestDiscount">{t("highestDiscount")}</option>
           <option value="newest">{t("newest")}</option>
           <option value="lowestPrice">{t("lowestPrice")}</option>
+          <option value="lowestPricePerSqm">{t("lowestPricePerSqm")}</option>
           <option value="bestAiDeals">{t("bestAiDeals")}</option>
         </select>
       </Section>

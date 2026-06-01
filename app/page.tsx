@@ -38,6 +38,7 @@ export default function HomePage() {
     if (filters.type) sp.set("type", filters.type);
     if (filters.rooms) sp.set("rooms", filters.rooms);
     if (filters.minDiscount > 0) sp.set("minDiscount", String(filters.minDiscount));
+    if (filters.maxPricePerSqm > 0) sp.set("maxPricePerSqm", String(filters.maxPricePerSqm));
     if (filters.source) sp.set("source", filters.source);
     if (filters.favorites) sp.set("favorites", "1");
     if (filters.aiOnly) sp.set("aiOnly", "1");
