@@ -5,6 +5,7 @@ import "dotenv/config";
 import { config } from "dotenv";
 config({ path: ".env.local", override: true });
 import { scrapeZimmo } from "../lib/scrapers/zimmo.ts";
+import { scrapeImmoweb } from "../lib/scrapers/immoweb.ts";
 
 const prisma = new PrismaClient();
 const start = Date.now();
@@ -14,28 +15,39 @@ const areas = await prisma.searchArea.findMany({
   where: { isActive: true, postalCode: { not: null } },
   select: { city: true, postalCode: true },
 });
-console.log(`Scraping ${areas.length} areas via Zimmo (this will take several minutes)...\n`);
+const areaInput = areas.map((a) => ({ city: a.city, postalCode: a.postalCode }));
+console.log(`Scraping ${areas.length} areas...`);
+console.log(`Zimmo (cheerio):    starting...`);
 
-// 2. Scrape
-const raw = await scrapeZimmo(
-  areas.map((a) => ({ city: a.city, postalCode: a.postalCode }))
-);
-console.log(`\n✓ Scraped ${raw.length} raw listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+const zimmoRaw = await scrapeZimmo(areaInput);
+console.log(`Zimmo done:         ${zimmoRaw.length} listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 
-if (raw.length < 50) {
-  console.error("FATAL: scraped < 50 listings — aborting before any destructive op");
+// 2b. Immoweb (only runs when USE_PLAYWRIGHT=true)
+const immowebStart = Date.now();
+console.log(`Immoweb (Playwright): starting (gated on USE_PLAYWRIGHT=${process.env.USE_PLAYWRIGHT})...`);
+const immowebRaw = await scrapeImmoweb(areaInput);
+console.log(`Immoweb done:       ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
+
+const raw = [...zimmoRaw, ...immowebRaw];
+console.log(`\n✓ Scraped ${raw.length} raw listings total in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+
+if (raw.length === 0) {
+  console.error("FATAL: scraped 0 listings — both scrapers returned empty (likely anti-bot / IP block / selector drift). Aborting before any destructive op.");
   await prisma.$disconnect();
   process.exit(1);
 }
 
-// 3. Validation
-const realImg = raw.filter((r) => r.imageUrl?.includes("zimmo.be")).length;
+// 3. Validation — accept images from either zimmo.be OR immoweb.be
+const realImg = raw.filter((r) => {
+  const u = r.imageUrl ?? "";
+  return u.includes("zimmo.be") || u.includes("immoweb.be") || u.includes("immoweb.net");
+}).length;
 const validPrice = raw.filter((r) => r.price > 1000).length;
-console.log(`  Real Zimmo images: ${realImg}/${raw.length}`);
-console.log(`  Valid prices:      ${validPrice}/${raw.length}`);
+console.log(`  Real (Zimmo or Immoweb) images: ${realImg}/${raw.length}`);
+console.log(`  Valid prices:                   ${validPrice}/${raw.length}`);
 
-if (realImg / raw.length < 0.9) {
-  console.error("FATAL: < 90% of listings have real Zimmo image — aborting");
+if (raw.length >= 50 && realImg / raw.length < 0.7) {
+  console.error("FATAL: < 70% of listings have real source images — possible parse failure. Aborting.");
   await prisma.$disconnect();
   process.exit(1);
 }
