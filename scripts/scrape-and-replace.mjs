@@ -117,46 +117,16 @@ for (const r of raw) {
 }
 console.log(`  Created: ${created}, Updated: ${updated}, Failed: ${failed}`);
 
-// 6. Recalc market averages
-console.log(`\n→ Recalculating market averages...`);
-const properties = await prisma.property.findMany({
-  where: { isActive: true, pricePerSqm: { not: null } },
-  select: { id: true, city: true, postalCode: true, type: true, pricePerSqm: true },
-});
-
-const byPostal = new Map();
-for (const p of properties) {
-  if (!p.pricePerSqm) continue;
-  const k = `${p.postalCode}|${p.type}`;
-  if (!byPostal.has(k)) byPostal.set(k, { city: p.city, postalCode: p.postalCode, type: p.type, samples: [] });
-  byPostal.get(k).samples.push(p.pricePerSqm);
-}
-
-await prisma.marketAverage.deleteMany({});
-let groupsComputed = 0;
-for (const g of byPostal.values()) {
-  if (g.samples.length < 3) continue;
-  const avg = Math.round(g.samples.reduce((a, b) => a + b, 0) / g.samples.length);
-  await prisma.marketAverage.create({
-    data: { city: g.city, postalCode: g.postalCode, type: g.type, avgPricePerSqm: avg, sampleSize: g.samples.length },
-  });
-  groupsComputed++;
-}
-console.log(`  ${groupsComputed} market-avg groups computed (groups with ≥3 samples)`);
-
-console.log(`  Back-applying discountPct to ${properties.length} properties...`);
-let dcUpdated = 0;
-for (const p of properties) {
-  const g = byPostal.get(`${p.postalCode}|${p.type}`);
-  if (!g || g.samples.length < 3) continue;
-  const avg = Math.round(g.samples.reduce((a, b) => a + b, 0) / g.samples.length);
-  const discountPct = ((p.pricePerSqm - avg) / avg) * 100;
-  await prisma.property.update({
-    where: { id: p.id },
-    data: { pricePerSqmAvg: avg, avgMarketPrice: avg, discountPct },
-  });
-  dcUpdated++;
-}
+// 6. Recalc market averages — DELEGATES to the proper implementation in
+// lib/market.ts (size buckets + winsorize + ±55% cap + 4-tier fallback).
+// This ensures every scrape applies the same statistical safeguards as
+// the standalone recalc script. Previously this file had its own inline
+// naive recalc that ignored those safeguards.
+console.log(`\n→ Recalculating market averages (winsorized, size-bucketed, capped)...`);
+const { recalculateMarketAverages } = await import("../lib/market.ts");
+const recalcResult = await recalculateMarketAverages();
+console.log(`  groups: ${recalcResult.groupsComputed}, scored: ${recalcResult.propertiesUpdated}, capped(>55%→null): ${recalcResult.cappedOut}`);
+const dcUpdated = recalcResult.propertiesUpdated;
 console.log(`  Updated discountPct on ${dcUpdated} properties`);
 
 // 7. Final stats
