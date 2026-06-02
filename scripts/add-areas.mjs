@@ -6,13 +6,21 @@ config({ path: ".env.local", override: true });
 const prisma = new PrismaClient();
 
 const AREAS = [
-  // Antwerpen
+  // Antwerpen city + sub-districts (every Antwerpen postal code Zimmo recognises)
   { name: "Antwerpen Centrum", city: "Antwerpen", postalCode: "2000", region: "Vlaanderen" },
   { name: "Antwerpen Zurenborg", city: "Antwerpen", postalCode: "2018", region: "Vlaanderen" },
   { name: "Antwerpen Linkeroever", city: "Antwerpen", postalCode: "2020", region: "Vlaanderen" },
   { name: "Antwerpen Luchtbal", city: "Antwerpen", postalCode: "2030", region: "Vlaanderen" },
-  { name: "Antwerpen Wilrijk", city: "Antwerpen", postalCode: "2050", region: "Vlaanderen" },
-  { name: "Antwerpen Berchem", city: "Antwerpen", postalCode: "2060", region: "Vlaanderen" },
+  { name: "Antwerpen Berendrecht-Zandvliet", city: "Antwerpen", postalCode: "2040", region: "Vlaanderen" },
+  { name: "Antwerpen Linkeroever-Zuid", city: "Antwerpen", postalCode: "2050", region: "Vlaanderen" },
+  { name: "Antwerpen Eilandje", city: "Antwerpen", postalCode: "2060", region: "Vlaanderen" },
+  { name: "Antwerpen Deurne", city: "Antwerpen", postalCode: "2100", region: "Vlaanderen" },
+  { name: "Antwerpen Borgerhout", city: "Antwerpen", postalCode: "2140", region: "Vlaanderen" },
+  { name: "Antwerpen Borsbeek", city: "Antwerpen", postalCode: "2150", region: "Vlaanderen" },
+  { name: "Antwerpen Merksem", city: "Antwerpen", postalCode: "2170", region: "Vlaanderen" },
+  { name: "Antwerpen Ekeren", city: "Antwerpen", postalCode: "2180", region: "Vlaanderen" },
+  { name: "Antwerpen Berchem-Zuid", city: "Antwerpen", postalCode: "2600", region: "Vlaanderen" },
+  { name: "Antwerpen Hoboken", city: "Antwerpen", postalCode: "2660", region: "Vlaanderen" },
   // Gent
   { name: "Gent Centrum", city: "Gent", postalCode: "9000", region: "Vlaanderen" },
   { name: "Gent Mariakerke", city: "Gent", postalCode: "9030", region: "Vlaanderen" },

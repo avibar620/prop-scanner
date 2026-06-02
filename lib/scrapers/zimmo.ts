@@ -33,12 +33,40 @@ export async function scrapeZimmo(
   areas: Array<{ city: string; postalCode: string }>
 ): Promise<RawProperty[]> {
   const out: RawProperty[] = [];
-  const seenIds = new Set<string>();
+
+  // De-dupe baseUrls across areas: for cities like Antwerpen, every sub-postal
+  // area resolves to the same `/nl/antwerpen/te-koop/` URL, so we'd otherwise
+  // hit it 14 times. Skip if we've already scraped this URL in this run.
+  const scrapedBaseUrls = new Set<string>();
 
   for (const area of areas) {
+    // seenIds is per-area: Zimmo's per-postal URLs are over-inclusive. The
+    // earlier global-Set design caused later areas (e.g. 2018) to come up empty
+    // because the first area "claimed" everything. With per-area Sets, every
+    // area gets full coverage; upsert-by-externalId in the writer step
+    // collapses duplicates.
+    const seenIds = new Set<string>();
+
     try {
       const citySlug = area.city.toLowerCase().replace(/\s+/g, "-");
-      const baseUrl = `https://www.zimmo.be/nl/${citySlug}-${area.postalCode}/te-koop/`;
+
+      // Multi-postal cities have broken per-postal URLs on Zimmo. Empirically
+      // verified 2026-06-02:
+      //   /antwerpen-2018/, /antwerpen-2100/ … all serve the SAME 2040 inventory
+      //   /mechelen-2800/   == /mechelen-2801/ (both = 188 same listings)
+      // The city-level URL `/nl/{city}/te-koop/` correctly aggregates inventory
+      // across all sub-postals; our address-line parser then assigns each
+      // listing to its real postal. For these cities we strip the postal.
+      const MULTI_POSTAL_CITIES = new Set(["antwerpen", "brussel", "gent", "brugge", "mechelen", "leuven"]);
+      const baseUrl = MULTI_POSTAL_CITIES.has(citySlug)
+        ? `https://www.zimmo.be/nl/${citySlug}/te-koop/`
+        : `https://www.zimmo.be/nl/${citySlug}-${area.postalCode}/te-koop/`;
+
+      if (scrapedBaseUrls.has(baseUrl)) {
+        console.log(`[zimmo] ${area.city} ${area.postalCode}: skipped (URL already scraped this run)`);
+        continue;
+      }
+      scrapedBaseUrls.add(baseUrl);
 
       let areaCount = 0;
       for (let page = 1; page <= MAX_PAGES_PER_AREA; page++) {
@@ -46,15 +74,18 @@ export async function scrapeZimmo(
         const $ = await safeFetch(url, 25_000);
         if (!$) break;
 
-        // RAW count = how many cards Zimmo returned (drives pagination decisions)
-        // DEDUPED count = how many we actually keep (drives output)
-        let rawCount = 0;
+        // Pagination is driven by how many cards Zimmo's HTML actually contains
+        // — NOT by parseCard success count. A page with 21 cards where 1 has a
+        // missing price still counts as a full page; we keep going to page+1.
+        // (Previous bug: any single unparseable card would terminate pagination.)
+        const cardEls = $(".property-item");
+        const rawCount = cardEls.length;
+
         const items: RawProperty[] = [];
-        $(".property-item").each((_, el) => {
+        cardEls.each((_, el) => {
           try {
             const parsed = parseCard($, el, area);
             if (!parsed) return;
-            rawCount++;
             if (!seenIds.has(parsed.externalId)) {
               seenIds.add(parsed.externalId);
               items.push(parsed);
@@ -67,8 +98,6 @@ export async function scrapeZimmo(
         out.push(...items);
         areaCount += items.length;
 
-        // Stop based on RAW card count from Zimmo, not on what survived dedup.
-        // A page where every card was a dup is still a "full page" from Zimmo's POV.
         if (rawCount === 0) break;          // truly past the end
         if (rawCount < PAGE_SIZE) break;    // last partial page
 

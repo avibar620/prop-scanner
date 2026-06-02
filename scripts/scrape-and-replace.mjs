@@ -6,6 +6,7 @@ import { config } from "dotenv";
 config({ path: ".env.local", override: true });
 import { scrapeZimmo } from "../lib/scrapers/zimmo.ts";
 import { scrapeImmoweb } from "../lib/scrapers/immoweb.ts";
+import { scrape2dehands } from "../lib/scrapers/tweedehands.ts";
 
 const prisma = new PrismaClient();
 const start = Date.now();
@@ -28,8 +29,20 @@ console.log(`Immoweb (Playwright): starting (gated on USE_PLAYWRIGHT=${process.e
 const immowebRaw = await scrapeImmoweb(areaInput);
 console.log(`Immoweb done:       ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
 
-const raw = [...zimmoRaw, ...immowebRaw];
-console.log(`\n✓ Scraped ${raw.length} raw listings total in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+// 2c. 2dehands (global list — pulls ~70-100 listings/run regardless of area)
+const tdhStart = Date.now();
+console.log(`2dehands (cheerio): starting...`);
+const tdhRaw = await scrape2dehands(areaInput);
+console.log(`2dehands done:      ${tdhRaw.length} listings in ${((Date.now() - tdhStart) / 1000).toFixed(1)}s`);
+
+const rawAll = [...zimmoRaw, ...immowebRaw, ...tdhRaw];
+// Cross-source dedup by externalId. Zimmo now dedups only within each area, so
+// the same listing can appear N times (once per area it was classified under) —
+// keep the LAST occurrence so the most-specific area "wins" the postal assignment.
+const byId = new Map();
+for (const r of rawAll) byId.set(r.externalId, r);
+const raw = [...byId.values()];
+console.log(`\n✓ Scraped ${rawAll.length} raw entries → ${raw.length} unique listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 
 if (raw.length === 0) {
   console.error("FATAL: scraped 0 listings — both scrapers returned empty (likely anti-bot / IP block / selector drift). Aborting before any destructive op.");
@@ -37,10 +50,16 @@ if (raw.length === 0) {
   process.exit(1);
 }
 
-// 3. Validation — accept images from either zimmo.be OR immoweb.be
+// 3. Validation — accept images from any of our active source CDNs
 const realImg = raw.filter((r) => {
   const u = r.imageUrl ?? "";
-  return u.includes("zimmo.be") || u.includes("immoweb.be") || u.includes("immoweb.net");
+  return (
+    u.includes("zimmo.be") ||
+    u.includes("immoweb.be") ||
+    u.includes("immoweb.net") ||
+    u.includes("2dehands.com") ||
+    u.includes("2dehands.be")
+  );
 }).length;
 const validPrice = raw.filter((r) => r.price > 1000).length;
 console.log(`  Real (Zimmo or Immoweb) images: ${realImg}/${raw.length}`);
