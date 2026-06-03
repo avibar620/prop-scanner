@@ -128,12 +128,12 @@ export default function PropertyCard({
           </div>
         )}
 
-        {/* Favorite */}
+        {/* Favorite — 44px tap target on mobile, 36px on desktop */}
         <button
           type="button"
           aria-label="favorite"
           onClick={stop(() => onToggleFavorite?.(p.id, p.isFavorite))}
-          className="absolute bottom-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
+          className="absolute bottom-3 right-3 w-11 h-11 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-lg sm:text-base"
           style={{ background: "rgba(255,255,255,0.92)" }}
         >
           {p.isFavorite ? "⭐" : "☆"}
@@ -146,7 +146,7 @@ export default function PropertyCard({
               type="button"
               aria-label="prev"
               onClick={stop(() => setGalleryIdx((i) => (i - 1 + images.length) % images.length))}
-              className="absolute top-1/2 left-2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+              className="absolute top-1/2 left-2 -translate-y-1/2 w-11 h-11 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xl sm:text-lg"
               style={{ background: "rgba(255,255,255,0.85)" }}
             >
               ‹
@@ -155,7 +155,7 @@ export default function PropertyCard({
               type="button"
               aria-label="next"
               onClick={stop(() => setGalleryIdx((i) => (i + 1) % images.length))}
-              className="absolute top-1/2 right-2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+              className="absolute top-1/2 right-2 -translate-y-1/2 w-11 h-11 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xl sm:text-lg"
               style={{ background: "rgba(255,255,255,0.85)" }}
             >
               ›
@@ -169,14 +169,14 @@ export default function PropertyCard({
         <button
           type="button"
           onClick={goToDetail}
-          className="text-left font-semibold text-base line-clamp-1"
+          className="text-left font-semibold text-base sm:text-base line-clamp-1"
           style={{ color: "var(--text-primary)" }}
         >
           {p.title}
         </button>
 
         <div className="mt-2">
-          <div className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+          <div className="text-2xl sm:text-xl font-bold" style={{ color: "var(--text-primary)" }}>
             {formatEUR(p.price)}
           </div>
         </div>
@@ -187,27 +187,25 @@ export default function PropertyCard({
           </div>
         )}
 
-        {/* Market comparison row — €/m² (apples-to-apples). Hidden when we
-            don't have a trustworthy market value for this property. */}
         {showMarket && (
-          <div className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+          <div className="mt-1 text-sm sm:text-xs" style={{ color: "var(--text-secondary)" }}>
             {t("market")}: {formatPerSqm(p.avgMarketPrice!)}
           </div>
         )}
 
-        <div className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+        <div className="mt-2 text-sm sm:text-xs" style={{ color: "var(--text-secondary)" }}>
           {[p.city, p.municipality, p.postalCode]
             .filter((v, i, arr) => v && arr.indexOf(v) === i)
             .join(" · ")}
         </div>
 
-        <div className="mt-1 text-xs flex flex-wrap gap-3" style={{ color: "var(--text-secondary)" }}>
+        <div className="mt-1 text-sm sm:text-xs flex flex-wrap gap-3" style={{ color: "var(--text-secondary)" }}>
           {p.sqm && <span>📐 {p.sqm} m²</span>}
           {p.rooms != null && p.rooms > 0 && <span>🛏️ {p.rooms} {t("rooms").toLowerCase()}</span>}
           <span>🏷️ {t(p.type)}</span>
         </div>
 
-        <div className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+        <div className="mt-1 text-sm sm:text-xs" style={{ color: "var(--text-secondary)" }}>
           {relativeTime(p.publishedAt, lang, p.firstSeenAt)}
         </div>
 
@@ -237,20 +235,22 @@ export default function PropertyCard({
         )}
 
         {/* Actions */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            className="ps-btn-ghost text-xs"
+            className="ps-btn-ghost text-base"
             onClick={stop(sendSelfEmail)}
             title={t("sendEmail")}
+            aria-label={t("sendEmail")}
           >
             📧
           </button>
           <button
             type="button"
-            className="ps-btn-ghost text-xs"
+            className="ps-btn-ghost text-base"
             onClick={stop(() => onOpenAgentEmail?.(p))}
             title={t("sendToAgent")}
+            aria-label={t("sendToAgent")}
           >
             ✉️
           </button>

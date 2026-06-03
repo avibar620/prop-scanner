@@ -29,6 +29,7 @@ export default function HomePage() {
   const [view, setView] = useState<"list" | "map">("list");
   const [agentEmailFor, setAgentEmailFor] = useState<Property | null>(null);
   const [bestDealsOpen, setBestDealsOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const qs = useMemo(() => {
     const sp = new URLSearchParams();
@@ -86,7 +87,7 @@ export default function HomePage() {
           onBestDeals={() => setBestDealsOpen(true)}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           <header className="flex items-center justify-between mb-4">
             <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {data ? (
@@ -132,7 +133,7 @@ export default function HomePage() {
                 </div>
               )}
               {data && data.properties.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {data.properties.map((p) => (
                     <PropertyCard
                       key={p.id}
@@ -184,6 +185,29 @@ export default function HomePage() {
           )}
         </main>
       </div>
+
+      {/* Mobile FAB — opens filter drawer */}
+      <button
+        type="button"
+        className="ps-fab md:hidden"
+        onClick={() => setMobileFiltersOpen(true)}
+        aria-label={t("filters")}
+      >
+        ⚙️ {t("filters")}
+      </button>
+
+      {mobileFiltersOpen && (
+        <FilterSidebar
+          variant="drawer"
+          value={filters}
+          onApply={(f) => {
+            setFilters(f);
+            setPage(1);
+          }}
+          onBestDeals={() => setBestDealsOpen(true)}
+          onClose={() => setMobileFiltersOpen(false)}
+        />
+      )}
 
       {agentEmailFor && (
         <AgentEmailModal property={agentEmailFor} onClose={() => setAgentEmailFor(null)} />

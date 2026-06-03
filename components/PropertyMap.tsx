@@ -7,16 +7,18 @@ export default function PropertyMap({
   lat,
   lng,
   title,
+  height,
 }: {
   lat: number;
   lng: number;
   title: string;
+  height?: number | string;
 }) {
   return (
     <MapContainer
       center={[lat, lng]}
       zoom={15}
-      style={{ height: 280, width: "100%", borderRadius: 8 }}
+      style={{ height: height ?? "clamp(250px, 40vw, 320px)", width: "100%", borderRadius: 8 }}
     >
       <TileLayer
         attribution='&copy; OpenStreetMap contributors'

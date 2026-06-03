@@ -151,7 +151,7 @@ export default function AdminPage() {
   return (
     <>
       <Navbar />
-      <div className="pt-20 px-6 pb-12 max-w-[1280px] mx-auto space-y-6">
+      <div className="pt-20 px-4 sm:px-6 pb-12 max-w-[1280px] mx-auto space-y-6">
         <h1 className="text-2xl font-bold">{t("admin")}</h1>
 
         {/* Scan control */}
@@ -173,45 +173,47 @@ export default function AdminPage() {
 
         {/* Data sources */}
         <Section title={t("manageSources")}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ color: "var(--text-secondary)" }}>
-                <Th>Name</Th>
-                <Th>URL</Th>
-                <Th>{t("lastScan")}</Th>
-                <Th>Total</Th>
-                <Th>Status</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((s) => (
-                <tr key={s.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <Td>{s.name}</Td>
-                  <Td>
-                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline">
-                      {s.url}
-                    </a>
-                  </Td>
-                  <Td>{s.lastScanned ? new Date(s.lastScanned).toLocaleString("nl-BE") : "—"}</Td>
-                  <Td>{s.totalFound}</Td>
-                  <Td>
-                    <button
-                      type="button"
-                      className="ps-pill"
-                      style={{
-                        background: s.isActive ? "var(--deal-good)" : "var(--deal-low)",
-                        color: "#fff",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => toggleSource(s.id, s.isActive)}
-                    >
-                      {s.isActive ? "ON" : "OFF"}
-                    </button>
-                  </Td>
+          <div className="ps-table-scroll">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: "var(--text-secondary)" }}>
+                  <Th>Name</Th>
+                  <Th>URL</Th>
+                  <Th>{t("lastScan")}</Th>
+                  <Th>Total</Th>
+                  <Th>Status</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sources.map((s) => (
+                  <tr key={s.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                    <Td>{s.name}</Td>
+                    <Td>
+                      <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline">
+                        {s.url}
+                      </a>
+                    </Td>
+                    <Td>{s.lastScanned ? new Date(s.lastScanned).toLocaleString("nl-BE") : "—"}</Td>
+                    <Td>{s.totalFound}</Td>
+                    <Td>
+                      <button
+                        type="button"
+                        className="ps-pill"
+                        style={{
+                          background: s.isActive ? "var(--deal-good)" : "var(--deal-low)",
+                          color: "#fff",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleSource(s.id, s.isActive)}
+                      >
+                        {s.isActive ? "ON" : "OFF"}
+                      </button>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
 
         {/* Search areas */}
@@ -239,34 +241,36 @@ export default function AdminPage() {
               + {t("addArea")}
             </button>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ color: "var(--text-secondary)" }}>
-                <Th>Name</Th>
-                <Th>City</Th>
-                <Th>Postal</Th>
-                <Th></Th>
-              </tr>
-            </thead>
-            <tbody>
-              {areas.map((a) => (
-                <tr key={a.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <Td>{a.name}</Td>
-                  <Td>{a.city}</Td>
-                  <Td>{a.postalCode ?? "—"}</Td>
-                  <Td>
-                    <button
-                      type="button"
-                      className="ps-btn-ghost text-xs"
-                      onClick={() => deleteArea(a.id)}
-                    >
-                      🗑
-                    </button>
-                  </Td>
+          <div className="ps-table-scroll">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: "var(--text-secondary)" }}>
+                  <Th>Name</Th>
+                  <Th>City</Th>
+                  <Th>Postal</Th>
+                  <Th></Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {areas.map((a) => (
+                  <tr key={a.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                    <Td>{a.name}</Td>
+                    <Td>{a.city}</Td>
+                    <Td>{a.postalCode ?? "—"}</Td>
+                    <Td>
+                      <button
+                        type="button"
+                        className="ps-btn-ghost text-xs"
+                        onClick={() => deleteArea(a.id)}
+                      >
+                        🗑
+                      </button>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
 
         {/* Alert rules */}
@@ -328,62 +332,66 @@ export default function AdminPage() {
               + {t("addAlert")}
             </button>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ color: "var(--text-secondary)" }}>
-                <Th>Name</Th>
-                <Th>City / Postal</Th>
-                <Th>Type</Th>
-                <Th>Max €/m²</Th>
-                <Th>Min %</Th>
-                <Th>Mode</Th>
-                <Th></Th>
-              </tr>
-            </thead>
-            <tbody>
-              {alerts.map((r) => (
-                <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <Td>{r.name}</Td>
-                  <Td>{[r.city, r.postalCode].filter(Boolean).join(" / ") || "—"}</Td>
-                  <Td>{r.type ? t(r.type) : "—"}</Td>
-                  <Td>{r.maxPricePerSqm ?? "—"}</Td>
-                  <Td>{r.minDiscount ?? "—"}</Td>
-                  <Td>{r.alertMode === "immediate" ? t("immediate") : t("summary")}</Td>
-                  <Td>
-                    <button type="button" className="ps-btn-ghost text-xs" onClick={() => deleteAlert(r.id)}>
-                      🗑
-                    </button>
-                  </Td>
+          <div className="ps-table-scroll">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: "var(--text-secondary)" }}>
+                  <Th>Name</Th>
+                  <Th>City / Postal</Th>
+                  <Th>Type</Th>
+                  <Th>Max €/m²</Th>
+                  <Th>Min %</Th>
+                  <Th>Mode</Th>
+                  <Th></Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {alerts.map((r) => (
+                  <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                    <Td>{r.name}</Td>
+                    <Td>{[r.city, r.postalCode].filter(Boolean).join(" / ") || "—"}</Td>
+                    <Td>{r.type ? t(r.type) : "—"}</Td>
+                    <Td>{r.maxPricePerSqm ?? "—"}</Td>
+                    <Td>{r.minDiscount ?? "—"}</Td>
+                    <Td>{r.alertMode === "immediate" ? t("immediate") : t("summary")}</Td>
+                    <Td>
+                      <button type="button" className="ps-btn-ghost text-xs" onClick={() => deleteAlert(r.id)}>
+                        🗑
+                      </button>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
 
         {/* Market averages */}
         <Section title={t("marketAverages")}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ color: "var(--text-secondary)" }}>
-                <Th>Postal</Th>
-                <Th>City</Th>
-                <Th>Type</Th>
-                <Th>Avg €/m²</Th>
-                <Th>Samples</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {market.map((m) => (
-                <tr key={m.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <Td>{m.postalCode}</Td>
-                  <Td>{m.city}</Td>
-                  <Td>{t(m.type)}</Td>
-                  <Td>{m.avgPricePerSqm.toLocaleString("nl-BE")}</Td>
-                  <Td>{m.sampleSize}</Td>
+          <div className="ps-table-scroll">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ color: "var(--text-secondary)" }}>
+                  <Th>Postal</Th>
+                  <Th>City</Th>
+                  <Th>Type</Th>
+                  <Th>Avg €/m²</Th>
+                  <Th>Samples</Th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {market.map((m) => (
+                  <tr key={m.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                    <Td>{m.postalCode}</Td>
+                    <Td>{m.city}</Td>
+                    <Td>{t(m.type)}</Td>
+                    <Td>{m.avgPricePerSqm.toLocaleString("nl-BE")}</Td>
+                    <Td>{m.sampleSize}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
 
         {/* Scan history placeholder */}
@@ -393,28 +401,30 @@ export default function AdminPage() {
               No scan logs yet.
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ color: "var(--text-secondary)" }}>
-                  <Th>When</Th>
-                  <Th>Source</Th>
-                  <Th>Status</Th>
-                  <Th>Count</Th>
-                  <Th>New</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {scanLogs.map((l) => (
-                  <tr key={l.id} className="border-t" style={{ borderColor: "var(--border)" }}>
-                    <Td>{new Date(l.createdAt).toLocaleString("nl-BE")}</Td>
-                    <Td>{l.source}</Td>
-                    <Td>{l.status}</Td>
-                    <Td>{l.count}</Td>
-                    <Td>{l.newCount}</Td>
+            <div className="ps-table-scroll">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ color: "var(--text-secondary)" }}>
+                    <Th>When</Th>
+                    <Th>Source</Th>
+                    <Th>Status</Th>
+                    <Th>Count</Th>
+                    <Th>New</Th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {scanLogs.map((l) => (
+                    <tr key={l.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                      <Td>{new Date(l.createdAt).toLocaleString("nl-BE")}</Td>
+                      <Td>{l.source}</Td>
+                      <Td>{l.status}</Td>
+                      <Td>{l.count}</Td>
+                      <Td>{l.newCount}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Section>
       </div>

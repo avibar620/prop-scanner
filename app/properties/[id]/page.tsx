@@ -116,8 +116,8 @@ export default function PropertyDetailPage({
   return (
     <>
       <Navbar />
-      <div className="pt-20 px-6 pb-12 max-w-[1280px] mx-auto" style={{ background: "var(--bg)" }}>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="pt-20 px-4 sm:px-6 pb-12 max-w-[1280px] mx-auto" style={{ background: "var(--bg)" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* LEFT 60% */}
           <div className="lg:col-span-3 space-y-4">
             {/* Image gallery */}

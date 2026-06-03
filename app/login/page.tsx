@@ -33,10 +33,10 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-6"
+      className="min-h-screen flex items-center justify-center p-4 sm:p-6"
       style={{ background: "var(--bg)" }}
     >
-      <div className="ps-card w-full max-w-[420px] p-8">
+      <div className="ps-card w-full max-w-[420px] p-6 sm:p-8">
         <div className="flex justify-end mb-3">
           <LanguageToggle />
         </div>

@@ -34,14 +34,20 @@ const EMPTY: Filters = {
 type CityRow = { city: string; count: number };
 type Source = { id: string; name: string; isActive: boolean };
 
+type Variant = "sidebar" | "drawer";
+
 export default function FilterSidebar({
   value,
   onApply,
   onBestDeals,
+  variant = "sidebar",
+  onClose,
 }: {
   value: Filters;
   onApply: (f: Filters) => void;
   onBestDeals: () => void;
+  variant?: Variant;
+  onClose?: () => void;
 }) {
   const { t } = useLang();
   const [draft, setDraft] = useState<Filters>(value);
@@ -49,8 +55,10 @@ export default function FilterSidebar({
   const [sources, setSources] = useState<Source[]>([]);
 
   useEffect(() => {
-    // /api/cities returns the actual cities present in Property table, with counts.
-    // Falls back to /api/areas if the new endpoint isn't deployed yet.
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
     fetch("/api/cities")
       .then((r) => (r.ok ? r.json() : []))
       .then(setCities)
@@ -65,14 +73,15 @@ export default function FilterSidebar({
     setDraft((d) => ({ ...d, [k]: v }));
   }
 
-  return (
-    <aside
-      className="w-[280px] shrink-0 h-[calc(100vh-64px)] overflow-y-auto p-5 border-r"
-      style={{ background: "var(--card)", borderColor: "var(--border)" }}
-    >
+  function applyAndClose(f: Filters) {
+    onApply(f);
+    onClose?.();
+  }
+
+  const form = (
+    <>
       <h2 className="text-lg font-semibold mb-4">{t("filters")}</h2>
 
-      {/* Free text */}
       <Section title={t("search")}>
         <input
           className="ps-input"
@@ -82,7 +91,6 @@ export default function FilterSidebar({
         />
       </Section>
 
-      {/* City — populated from real cities in the Property table */}
       {cities.length > 0 && (
         <Section title={t("area")}>
           <select
@@ -100,7 +108,6 @@ export default function FilterSidebar({
         </Section>
       )}
 
-      {/* Type */}
       <Section title={t("type")}>
         <div className="space-y-1.5 text-sm">
           {[
@@ -111,10 +118,10 @@ export default function FilterSidebar({
             { v: "commercial", k: "commercial" },
             { v: "land", k: "land" },
           ].map((opt) => (
-            <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
+            <label key={opt.v} className="flex items-center gap-2 cursor-pointer min-h-[28px]">
               <input
                 type="radio"
-                name="type"
+                name={`type-${variant}`}
                 checked={draft.type === opt.v}
                 onChange={() => update("type", opt.v)}
               />
@@ -124,7 +131,6 @@ export default function FilterSidebar({
         </div>
       </Section>
 
-      {/* Min discount — number input only, no slider */}
       <Section title={t("minDiscount")}>
         <div className="flex items-center gap-2">
           <input
@@ -143,7 +149,6 @@ export default function FilterSidebar({
         </div>
       </Section>
 
-      {/* Max price per m² */}
       <Section title={t("maxPricePerSqm")}>
         <div className="flex items-center gap-2">
           <input
@@ -163,7 +168,6 @@ export default function FilterSidebar({
         </div>
       </Section>
 
-      {/* Rooms */}
       <Section title={t("rooms")}>
         <div className="flex flex-wrap gap-1.5">
           {["", "1", "2", "3", "4+"].map((r) => {
@@ -178,6 +182,8 @@ export default function FilterSidebar({
                   background: active ? "var(--accent)" : "#F5F2EC",
                   color: active ? "#fff" : "var(--text-secondary)",
                   cursor: "pointer",
+                  minHeight: 32,
+                  padding: "6px 12px",
                 }}
               >
                 {r === "" ? t("allRooms") : r}
@@ -187,7 +193,6 @@ export default function FilterSidebar({
         </div>
       </Section>
 
-      {/* Source */}
       {sources.length > 0 && (
         <Section title={t("source")}>
           <select
@@ -207,9 +212,8 @@ export default function FilterSidebar({
         </Section>
       )}
 
-      {/* Toggles */}
       <Section title="">
-        <label className="flex items-center gap-2 text-sm mb-1.5 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm mb-2 cursor-pointer min-h-[28px]">
           <input
             type="checkbox"
             checked={draft.favorites}
@@ -217,7 +221,7 @@ export default function FilterSidebar({
           />
           {t("favoritesOnly")}
         </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <label className="flex items-center gap-2 text-sm cursor-pointer min-h-[28px]">
           <input
             type="checkbox"
             checked={draft.aiOnly}
@@ -227,7 +231,6 @@ export default function FilterSidebar({
         </label>
       </Section>
 
-      {/* Sort */}
       <Section title={t("sort")}>
         <select
           className="ps-input"
@@ -242,8 +245,7 @@ export default function FilterSidebar({
         </select>
       </Section>
 
-      {/* Actions */}
-      <button type="button" className="ps-btn-primary w-full mt-2" onClick={() => onApply(draft)}>
+      <button type="button" className="ps-btn-primary w-full mt-2" onClick={() => applyAndClose(draft)}>
         {t("apply")}
       </button>
       <button
@@ -251,7 +253,7 @@ export default function FilterSidebar({
         className="ps-btn-ghost w-full mt-1.5 text-sm"
         onClick={() => {
           setDraft(EMPTY);
-          onApply(EMPTY);
+          applyAndClose(EMPTY);
         }}
       >
         {t("reset")}
@@ -261,10 +263,34 @@ export default function FilterSidebar({
         type="button"
         className="w-full mt-4 ps-btn-primary"
         style={{ background: "#1A1A1A" }}
-        onClick={onBestDeals}
+        onClick={() => {
+          onBestDeals();
+          onClose?.();
+        }}
       >
         ⚡ {t("bestDeals")}
       </button>
+    </>
+  );
+
+  if (variant === "drawer") {
+    return (
+      <>
+        <div className="ps-sheet-backdrop" onClick={onClose} />
+        <div className="ps-sheet" role="dialog" aria-modal="true">
+          <div className="ps-sheet-grip" />
+          {form}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <aside
+      className="hidden md:block w-[280px] shrink-0 h-[calc(100vh-64px)] overflow-y-auto p-5 border-r"
+      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+    >
+      {form}
     </aside>
   );
 }
