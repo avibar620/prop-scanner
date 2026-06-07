@@ -57,6 +57,7 @@ const SOURCES: Array<{ name: string; url: string }> = [
   { name: "Kapaza", url: "https://www.kapaza.be" },                     // stub — Adevinta, legal risk
   { name: "Immo Nervia", url: "https://www.immonervia.be" },            // stub
   { name: "Immo Mechelen", url: "https://www.immomechelen.be" },        // stub
+  { name: "Immoscoop", url: "https://www.immoscoop.be" },               // ScraperAPI gateway
 ];
 
 async function seedSources() {

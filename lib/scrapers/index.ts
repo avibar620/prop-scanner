@@ -31,6 +31,7 @@ import { scrape2dehands } from "./tweedehands";
 import { scrapeKapaza } from "./kapaza";
 import { scrapeImmoNervia } from "./immonervia";
 import { scrapeImmoMechelen } from "./immomechelen";
+import { scrapeImmoscoop } from "./immoscoop";
 
 type ScraperFn = (areas: Array<{ city: string; postalCode: string }>) => Promise<RawProperty[]>;
 
@@ -64,6 +65,7 @@ const SOURCE_TO_SCRAPER: Record<string, ScraperFn> = {
   Kapaza: scrapeKapaza,
   "Immo Nervia": scrapeImmoNervia,
   "Immo Mechelen": scrapeImmoMechelen,
+  Immoscoop: scrapeImmoscoop,
 };
 
 export type RunSummary = {

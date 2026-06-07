@@ -7,6 +7,8 @@ config({ path: ".env.local", override: true });
 import { scrapeZimmo } from "../lib/scrapers/zimmo.ts";
 import { scrapeImmoweb } from "../lib/scrapers/immoweb.ts";
 import { scrape2dehands } from "../lib/scrapers/tweedehands.ts";
+import { scrapeRealo } from "../lib/scrapers/realo.ts";
+import { scrapeImmoscoop } from "../lib/scrapers/immoscoop.ts";
 
 const prisma = new PrismaClient();
 const start = Date.now();
@@ -23,19 +25,34 @@ console.log(`Zimmo (cheerio):    starting...`);
 const zimmoRaw = await scrapeZimmo(areaInput);
 console.log(`Zimmo done:         ${zimmoRaw.length} listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 
-// 2b. Immoweb (only runs when USE_PLAYWRIGHT=true)
+// 2b. Immoweb / Realo / Immoscoop — all via ScraperAPI gateway.
+// Gated on SCRAPER_API_KEY: with no key set, each scraper returns [] without
+// burning network calls, so this whole block is a safe no-op in dev.
+const scraperApiActive =
+  process.env.SCRAPER_API_KEY && process.env.SCRAPER_API_KEY !== "PLACEHOLDER_FILL_THIS";
+
 const immowebStart = Date.now();
-console.log(`Immoweb (Playwright): starting (gated on USE_PLAYWRIGHT=${process.env.USE_PLAYWRIGHT})...`);
-const immowebRaw = await scrapeImmoweb(areaInput);
-console.log(`Immoweb done:       ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
+console.log(`Immoweb (ScraperAPI):   starting (key=${scraperApiActive ? "yes" : "MISSING — skip"})...`);
+const immowebRaw = scraperApiActive ? await scrapeImmoweb(areaInput) : [];
+console.log(`Immoweb done:           ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
+
+const realoStart = Date.now();
+console.log(`Realo (ScraperAPI):     starting...`);
+const realoRaw = scraperApiActive ? await scrapeRealo(areaInput) : [];
+console.log(`Realo done:             ${realoRaw.length} listings in ${((Date.now() - realoStart) / 1000).toFixed(1)}s`);
+
+const immoscoopStart = Date.now();
+console.log(`Immoscoop (ScraperAPI): starting...`);
+const immoscoopRaw = scraperApiActive ? await scrapeImmoscoop(areaInput) : [];
+console.log(`Immoscoop done:         ${immoscoopRaw.length} listings in ${((Date.now() - immoscoopStart) / 1000).toFixed(1)}s`);
 
 // 2c. 2dehands (global list — pulls ~70-100 listings/run regardless of area)
 const tdhStart = Date.now();
-console.log(`2dehands (cheerio): starting...`);
+console.log(`2dehands (cheerio):     starting...`);
 const tdhRaw = await scrape2dehands(areaInput);
-console.log(`2dehands done:      ${tdhRaw.length} listings in ${((Date.now() - tdhStart) / 1000).toFixed(1)}s`);
+console.log(`2dehands done:          ${tdhRaw.length} listings in ${((Date.now() - tdhStart) / 1000).toFixed(1)}s`);
 
-const rawAll = [...zimmoRaw, ...immowebRaw, ...tdhRaw];
+const rawAll = [...zimmoRaw, ...immowebRaw, ...realoRaw, ...immoscoopRaw, ...tdhRaw];
 // Cross-source dedup by externalId. Zimmo now dedups only within each area, so
 // the same listing can appear N times (once per area it was classified under) —
 // keep the LAST occurrence so the most-specific area "wins" the postal assignment.
@@ -58,7 +75,10 @@ const realImg = raw.filter((r) => {
     u.includes("immoweb.be") ||
     u.includes("immoweb.net") ||
     u.includes("2dehands.com") ||
-    u.includes("2dehands.be")
+    u.includes("2dehands.be") ||
+    u.includes("realo.be") ||
+    u.includes("realocdn") ||
+    u.includes("immoscoop.be")
   );
 }).length;
 const validPrice = raw.filter((r) => r.price > 1000).length;

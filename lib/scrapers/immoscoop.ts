@@ -2,12 +2,10 @@ import type { RawProperty } from "./types";
 import { scraperFetch$, scraperApiAvailable } from "./scraper-api";
 
 /**
- * Realo scraper — https://www.realo.be
+ * Immoscoop scraper — https://www.immoscoop.be
  *
- * Earlier direct-fetch attempts returned 404 because Realo segments inventory
- * by city slug + locale and SSRs cards inside a hashed-class grid. Routing
- * through ScraperAPI with render=true gives us the fully-hydrated grid so
- * cheerio can pull listings cleanly.
+ * Routes through ScraperAPI (render=true) like the other big BE sites
+ * because Immoscoop also gates direct IP fetches behind anti-bot.
  *
  * NEVER throws — returns [] on any failure path.
  */
@@ -15,20 +13,17 @@ import { scraperFetch$, scraperApiAvailable } from "./scraper-api";
 const MAX_PAGES_PER_AREA = 5;
 
 function buildUrl(postalCode: string, page: number): string {
-  // Realo's listing index supports a postalCode query plus a page param.
-  const params = new URLSearchParams({
-    transactionType: "FORSALE",
-    postalCode,
-  });
-  if (page > 1) params.set("page", String(page));
-  return `https://www.realo.be/nl/zoeken?${params.toString()}`;
+  // Immoscoop filters by `postcode` and paginates with `pagina` (Dutch URL).
+  const params = new URLSearchParams({ postcode: postalCode });
+  if (page > 1) params.set("pagina", String(page));
+  return `https://www.immoscoop.be/nl/te-koop?${params.toString()}`;
 }
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function scrapeRealo(
+export async function scrapeImmoscoop(
   areas: Array<{ city: string; postalCode: string }>
 ): Promise<RawProperty[]> {
   if (!scraperApiAvailable()) return [];
@@ -42,11 +37,10 @@ export async function scrapeRealo(
         const $ = await scraperFetch$(buildUrl(area.postalCode, page), { render: true });
         if (!$) break;
 
-        // Realo currently uses [data-testid="..."] hooks on cards; we also
-        // accept hashed-class fallbacks because the build hash changes.
         const cards = $(
-          "[data-testid*='estate'],[data-testid*='listing'],[data-testid*='card']," +
-            "article[class*='card'],article[class*='listing'],div[class*='property-card'],div[class*='estate-card']"
+          "[data-testid*='listing'],[data-testid*='card']," +
+            "article[class*='card'],article[class*='listing']," +
+            "div[class*='property-card'],div[class*='estate-card'],div[class*='result-item']"
         );
 
         if (cards.length === 0) break;
@@ -54,26 +48,26 @@ export async function scrapeRealo(
         let added = 0;
         cards.each((_, el) => {
           const $el = $(el);
-          const a = $el.find("a[href*='/nl/']").first();
+          const a = $el.find("a[href]").first();
           const href = a.attr("href") ?? "";
-          if (!href.includes("/nl/")) return;
+          if (!href) return;
 
-          // Realo's detail URLs look like /nl/{slug}/{id} — pull the id off the end.
-          const idMatch = href.match(/\/(\d{6,})(?:$|\?|#|\/)/) ?? href.match(/-(\d{6,})(?:$|\?|#|\/)/);
+          // Immoscoop detail URLs commonly include a numeric / slug-id suffix.
+          const idMatch = href.match(/\/(\d{5,})(?:$|\?|#|\/)/) ?? href.match(/-(\d{5,})(?:$|\?|#)/);
           if (!idMatch) return;
-          const externalId = `realo-${idMatch[1]}`;
+          const externalId = `immoscoop-${idMatch[1]}`;
           if (seen.has(externalId)) return;
 
-          const url = href.startsWith("http") ? href : `https://www.realo.be${href}`;
+          const url = href.startsWith("http") ? href : `https://www.immoscoop.be${href}`;
           const priceText = $el.find("[class*='price'],[data-testid*='price']").first().text();
           const price = parseEuroPrice(priceText);
           if (!price) return;
 
           const title =
             trim($el.find("[class*='title'],[data-testid*='title'],h2,h3").first().text()) ||
-            `Realo ${idMatch[1]}`;
-          const locationText = trim($el.find("[class*='location'],[class*='address']").first().text()) || area.city;
+            `Immoscoop ${idMatch[1]}`;
 
+          const locationText = trim($el.find("[class*='location'],[class*='address']").first().text()) || area.city;
           const meta = trim($el.find("[class*='feature'],[class*='attribute'],[class*='meta']").first().text());
           const sqmMatch = meta.match(/(\d{2,4})\s*m/i);
           const sqm = sqmMatch ? parseInt(sqmMatch[1], 10) : undefined;
@@ -83,16 +77,14 @@ export async function scrapeRealo(
           const img = $el.find("img").first();
           const imageUrl = img.attr("src") ?? img.attr("data-src") ?? undefined;
 
-          // If the location string includes a Belgian postal, prefer it; else
-          // fall back to the URL-derived area postal.
           const postalMatch = locationText.match(/\b([1-9]\d{3})\b/);
           const postalCode = postalMatch ? postalMatch[1] : area.postalCode;
 
           seen.add(externalId);
           out.push({
             externalId,
-            source: "Realo",
-            sourceUrl: "https://www.realo.be",
+            source: "Immoscoop",
+            sourceUrl: "https://www.immoscoop.be",
             url,
             title,
             price,
@@ -109,12 +101,12 @@ export async function scrapeRealo(
           added += 1;
         });
 
-        console.log(`[realo] ${area.city} ${area.postalCode} p${page}: +${added} (cards=${cards.length})`);
+        console.log(`[immoscoop] ${area.city} ${area.postalCode} p${page}: +${added} (cards=${cards.length})`);
         if (added === 0) break;
         await sleep(300);
       }
     } catch (err) {
-      console.error(`[realo] area ${area.city} ${area.postalCode} failed:`, err instanceof Error ? err.message : err);
+      console.error(`[immoscoop] area ${area.city} ${area.postalCode} failed:`, err instanceof Error ? err.message : err);
     }
   }
 
@@ -123,7 +115,6 @@ export async function scrapeRealo(
 
 function parseEuroPrice(s: string | undefined): number | undefined {
   if (!s) return undefined;
-  // Match Dutch format ("€ 350.000,00") OR plain digits with separators.
   const m = s.match(/€\s*([\d.\s]+)(?:,\d{2})?|(\d[\d.\s]+)/);
   if (!m) return undefined;
   const digits = (m[1] ?? m[2] ?? "").replace(/[.\s]/g, "");
@@ -136,7 +127,6 @@ function trim(s: string | undefined): string {
 }
 
 function extractCity(locationText: string): string {
-  // "Antwerpen 2000" or "2000 Antwerpen" — return "Antwerpen".
   const m = locationText.match(/([A-Za-zÀ-ÿ\s-]{3,})/);
   return m ? m[1].trim().slice(0, 40) : locationText;
 }
