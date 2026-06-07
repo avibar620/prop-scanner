@@ -169,6 +169,18 @@ export default function PropertyCard({
 
       {/* Body */}
       <div className="p-4 flex-1 flex flex-col">
+        {/* Prominent location: city + postal in bold, dark — above the title. */}
+        <div
+          className="flex items-center gap-1 font-bold text-base sm:text-[17px] leading-tight mb-1"
+          style={{ color: "var(--text-primary)" }}
+        >
+          <span aria-hidden>📍</span>
+          <span>
+            {p.city}
+            {p.postalCode ? ` (${p.postalCode})` : ""}
+          </span>
+        </div>
+
         <button
           type="button"
           onClick={goToDetail}
@@ -196,13 +208,7 @@ export default function PropertyCard({
           </div>
         )}
 
-        <div className="mt-2 text-sm sm:text-xs" style={{ color: "var(--text-secondary)" }}>
-          {[p.city, p.municipality, p.postalCode]
-            .filter((v, i, arr) => v && arr.indexOf(v) === i)
-            .join(" · ")}
-        </div>
-
-        <div className="mt-1 text-sm sm:text-xs flex flex-wrap gap-3" style={{ color: "var(--text-secondary)" }}>
+        <div className="mt-2 text-sm sm:text-xs flex flex-wrap gap-3" style={{ color: "var(--text-secondary)" }}>
           {p.sqm && <span>📐 {p.sqm} m²</span>}
           {p.rooms != null && p.rooms > 0 && <span>🛏️ {p.rooms} {t("rooms").toLowerCase()}</span>}
           <span>🏷️ {t(p.type)}</span>

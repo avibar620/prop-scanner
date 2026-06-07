@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import AgentEmailModal from "@/components/AgentEmailModal";
 import PriceHistoryChart from "@/components/PriceHistoryChart";
 import { formatEUR, formatPerSqm, dealLevel, aiVerdict } from "@/lib/format";
+import { LANG_LABELS } from "@/lib/i18n";
 import type { Property, PriceHistory, Note } from "@prisma/client";
 
 const PropertyMap = dynamic(() => import("@/components/PropertyMap"), { ssr: false });
@@ -19,7 +20,7 @@ export default function PropertyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [data, setData] = useState<DetailResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgIdx, setImgIdx] = useState(0);
@@ -49,7 +50,11 @@ export default function PropertyDetailPage({
   async function reanalyze() {
     setAnalyzing(true);
     try {
-      await fetch(`/api/properties/${id}/analyze`, { method: "POST" });
+      await fetch(`/api/properties/${id}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang }),
+      });
       await load();
     } finally {
       setAnalyzing(false);
@@ -175,9 +180,20 @@ export default function PropertyDetailPage({
           {/* RIGHT 40% — sticky */}
           <div className="lg:col-span-2 space-y-4">
             <div className="ps-card p-5">
-              <h1 className="text-xl font-bold mb-2">{p.title}</h1>
+              {/* Prominent location header */}
+              <div
+                className="flex items-center gap-1.5 font-bold text-lg sm:text-xl leading-tight mb-1"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <span aria-hidden>📍</span>
+                <span>
+                  {p.city}
+                  {p.postalCode ? ` (${p.postalCode})` : ""}
+                </span>
+              </div>
+              <h1 className="text-xl font-bold mb-1">{p.title}</h1>
               <div className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
-                {p.address} · {p.city} ({p.postalCode})
+                {p.address}
               </div>
 
               <div className="flex items-baseline gap-3 mb-1">
@@ -285,8 +301,9 @@ export default function PropertyDetailPage({
                   className="ps-btn-ghost text-xs"
                   onClick={reanalyze}
                   disabled={analyzing}
+                  title={`${t("reanalyzeIn")} ${LANG_LABELS[lang]}`}
                 >
-                  {analyzing ? t("generating") : t("reanalyze")}
+                  {analyzing ? t("generating") : `🔄 ${t("reanalyzeIn")} ${LANG_LABELS[lang]}`}
                 </button>
               </div>
 
@@ -307,6 +324,14 @@ export default function PropertyDetailPage({
                     </div>
                   </div>
                   {p.aiAnalysis && <div className="text-sm whitespace-pre-line">{p.aiAnalysis}</div>}
+                  {p.aiLanguage && (
+                    <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {t("analysisLanguage")}:{" "}
+                      <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {LANG_LABELS[p.aiLanguage as keyof typeof LANG_LABELS] ?? p.aiLanguage}
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-sm" style={{ color: "var(--text-secondary)" }}>

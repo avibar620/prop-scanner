@@ -180,6 +180,10 @@ const nl: Dict = {
   emailSelfSuccess: "Mail naar jezelf verzonden ✅",
   emailAgentSuccess: "Mail naar makelaar verzonden ✅",
   emailErrorTitle: "Verzenden mislukt",
+
+  // AI analysis
+  analysisLanguage: "Taal van analyse",
+  reanalyzeIn: "Analyse in",
 };
 
 const en: Dict = {
@@ -331,6 +335,10 @@ const en: Dict = {
   emailSelfSuccess: "Email sent to yourself ✅",
   emailAgentSuccess: "Email sent to the agent ✅",
   emailErrorTitle: "Failed to send",
+
+  // AI analysis
+  analysisLanguage: "Analysis language",
+  reanalyzeIn: "Reanalyze in",
 };
 
 const he: Dict = {
@@ -482,6 +490,10 @@ const he: Dict = {
   emailSelfSuccess: "המייל נשלח אליך ✅",
   emailAgentSuccess: "המייל נשלח לסוכן ✅",
   emailErrorTitle: "השליחה נכשלה",
+
+  // AI analysis
+  analysisLanguage: "שפת הניתוח",
+  reanalyzeIn: "נתח מחדש ב-",
 };
 
 const dicts: Record<Lang, Dict> = { nl, en, he };

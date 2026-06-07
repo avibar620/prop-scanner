@@ -73,6 +73,7 @@ model Property {
   aiAnalysis     String?
   aiScore        Int?
   aiUpdatedAt    DateTime?
+  aiLanguage     String?        // "nl" | "he" | "en" — language the analysis was generated in
   agentEmail     String?
   agentName      String?
   agentPhone     String?
