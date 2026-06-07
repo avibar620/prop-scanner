@@ -3,12 +3,9 @@
 import { useState } from "react";
 import { useLang } from "@/app/providers";
 import { formatEUR, formatPerSqm, relativeTime, dealLevel, aiVerdict } from "@/lib/format";
-import { triggerMailto } from "@/lib/mailto";
 import type { Property } from "@prisma/client";
 
 const FALLBACK_IMG = "https://picsum.photos/seed/prop-scanner-fallback/800/600";
-const SELF_EMAIL = "avibar620@gmail.com";
-const SITE_BASE = "https://prop-scanner-ahz6.vercel.app";
 
 type Props = {
   property: Property;
@@ -25,6 +22,8 @@ export default function PropertyCard({
   const { t, lang } = useLang();
   const [galleryIdx, setGalleryIdx] = useState(0);
   const [imgErr, setImgErr] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
   const images = p.imageUrls?.length ? p.imageUrls : p.imageUrl ? [p.imageUrl] : [FALLBACK_IMG];
   const currentImg = imgErr ? FALLBACK_IMG : images[galleryIdx % images.length];
@@ -45,24 +44,28 @@ export default function PropertyCard({
     window.open(`/properties/${p.id}`, "_blank", "noopener,noreferrer");
   }
 
-  function sendSelfEmail() {
-    const subject = encodeURIComponent(`${t("appName")}: ${p.title}`);
-    const lines = [
-      `${p.title}`,
-      "",
-      `Prijs: € ${p.price.toLocaleString("nl-BE")}`,
-      p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
-      p.avgMarketPrice ? `${t("market")}: € ${p.avgMarketPrice.toLocaleString("nl-BE")}/m²` : "",
-      p.discountPct != null ? `${t("underMarket")}: ${discountAbs}%` : "",
-      `${p.address}, ${p.postalCode} ${p.city}`,
-      "",
-      `${t("viewOnSource")} ${p.source}: ${p.url}`,
-      `Prop-Scanner: ${SITE_BASE}/properties/${p.id}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const body = encodeURIComponent(lines);
-    triggerMailto(`mailto:${SELF_EMAIL}?subject=${subject}&body=${body}`);
+  async function sendSelfEmail() {
+    if (sending) return;
+    setSending(true);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/properties/${p.id}/email`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (res.ok && body.ok !== false) {
+        setToast({ ok: true, text: t("emailSelfSuccess") });
+      } else {
+        setToast({ ok: false, text: `${t("emailErrorTitle")}: ${body.error ?? res.statusText}` });
+      }
+    } catch (err) {
+      setToast({
+        ok: false,
+        text: `${t("emailErrorTitle")}: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setSending(false);
+      // Auto-clear after 4s so it doesn't sit forever on a card.
+      setTimeout(() => setToast(null), 4_000);
+    }
   }
 
   function stop<T>(fn: (...a: T[]) => void) {
@@ -235,15 +238,16 @@ export default function PropertyCard({
         )}
 
         {/* Actions */}
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2 items-center">
           <button
             type="button"
             className="ps-btn-ghost text-base"
             onClick={stop(sendSelfEmail)}
+            disabled={sending}
             title={t("sendEmail")}
             aria-label={t("sendEmail")}
           >
-            📧
+            {sending ? "⏳" : "📧"}
           </button>
           <button
             type="button"
@@ -254,6 +258,15 @@ export default function PropertyCard({
           >
             ✉️
           </button>
+          {toast && (
+            <span
+              className="text-xs font-semibold"
+              style={{ color: toast.ok ? "var(--deal-good)" : "var(--danger)" }}
+              role="status"
+            >
+              {toast.text}
+            </span>
+          )}
         </div>
 
         {/* Footer */}

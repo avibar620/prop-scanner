@@ -7,7 +7,6 @@ import Navbar from "@/components/Navbar";
 import AgentEmailModal from "@/components/AgentEmailModal";
 import PriceHistoryChart from "@/components/PriceHistoryChart";
 import { formatEUR, formatPerSqm, dealLevel, aiVerdict } from "@/lib/format";
-import { triggerMailto } from "@/lib/mailto";
 import type { Property, PriceHistory, Note } from "@prisma/client";
 
 const PropertyMap = dynamic(() => import("@/components/PropertyMap"), { ssr: false });
@@ -28,6 +27,8 @@ export default function PropertyDetailPage({
   const [noteContent, setNoteContent] = useState("");
   const [noteTag, setNoteTag] = useState<string>("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,25 +68,27 @@ export default function PropertyDetailPage({
     load();
   }
 
-  function sendSelf() {
-    if (!data) return;
-    const p = data;
-    const subject = encodeURIComponent(`${t("appName")}: ${p.title}`);
-    const marketTotal = p.avgMarketPrice && p.sqm ? p.avgMarketPrice * p.sqm : null;
-    const discountAbs = Math.abs(p.discountPct ?? 0).toFixed(1);
-    const lines = [
-      p.title,
-      "",
-      `${t("price") || "Prijs"}: € ${p.price.toLocaleString("nl-BE")}`,
-      p.pricePerSqm ? `€/m²: € ${p.pricePerSqm.toLocaleString("nl-BE")}` : "",
-      marketTotal ? `${t("market")}: € ${marketTotal.toLocaleString("nl-BE")}` : "",
-      `${t("underMarket")}: ${discountAbs}%`,
-      `${p.address}, ${p.postalCode} ${p.city}`,
-      "",
-      `${t("viewOnSource")} ${p.source}: ${p.url}`,
-      `Prop-Scanner: https://prop-scanner-ahz6.vercel.app/properties/${p.id}`,
-    ].filter(Boolean).join("\n");
-    triggerMailto(`mailto:avibar620@gmail.com?subject=${subject}&body=${encodeURIComponent(lines)}`);
+  async function sendSelf() {
+    if (!data || sending) return;
+    setSending(true);
+    setToast(null);
+    try {
+      const res = await fetch(`/api/properties/${data.id}/email`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (res.ok && body.ok !== false) {
+        setToast({ ok: true, text: t("emailSelfSuccess") });
+      } else {
+        setToast({ ok: false, text: `${t("emailErrorTitle")}: ${body.error ?? res.statusText}` });
+      }
+    } catch (err) {
+      setToast({
+        ok: false,
+        text: `${t("emailErrorTitle")}: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setSending(false);
+      setTimeout(() => setToast(null), 5_000);
+    }
   }
 
   if (loading) {
@@ -242,8 +245,13 @@ export default function PropertyDetailPage({
                 >
                   {t("viewOriginal")} →
                 </a>
-                <button type="button" className="ps-btn-secondary w-full" onClick={sendSelf}>
-                  📧 {t("sendEmail")}
+                <button
+                  type="button"
+                  className="ps-btn-secondary w-full"
+                  onClick={sendSelf}
+                  disabled={sending}
+                >
+                  {sending ? `⏳ ${t("sending")}` : `📧 ${t("sendEmail")}`}
                 </button>
                 <button
                   type="button"
@@ -253,6 +261,18 @@ export default function PropertyDetailPage({
                 >
                   ✉️ {t("sendToAgent")}
                 </button>
+                {toast && (
+                  <div
+                    className="text-sm font-semibold px-3 py-2 rounded-md"
+                    style={{
+                      background: toast.ok ? "#E8F5EE" : "#FDECEA",
+                      color: toast.ok ? "var(--deal-good)" : "var(--danger)",
+                    }}
+                    role="status"
+                  >
+                    {toast.text}
+                  </div>
+                )}
               </div>
             </div>
 

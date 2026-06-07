@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useLang } from "@/app/providers";
-import { triggerMailto } from "@/lib/mailto";
 import type { Property } from "@prisma/client";
 
 export default function AgentEmailModal({
@@ -14,18 +13,34 @@ export default function AgentEmailModal({
 }) {
   const { t } = useLang();
   const [to, setTo] = useState(property.agentEmail ?? "");
-  const [subject, setSubject] = useState(`Interesse in: ${property.title}`);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function send() {
-    // Open user's mail client with the composed message. No server round-trip
-    // — the user's chosen mail client (Gmail web, Outlook, etc) handles delivery.
-    const href =
-      `mailto:${encodeURIComponent(to)}` +
-      `?subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(message)}`;
-    triggerMailto(href);
-    setTimeout(onClose, 400);
+  async function send() {
+    if (!to || !message.trim() || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/properties/${property.id}/agent-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentEmail: to, message: message.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (res.ok && body.ok !== false) {
+        // Brief success message before closing, so the user knows it landed.
+        setError(null);
+        setMessage("");
+        setTimeout(onClose, 600);
+        return;
+      }
+      setError(`${t("emailErrorTitle")}: ${body.error ?? res.statusText}`);
+    } catch (err) {
+      setError(`${t("emailErrorTitle")}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -51,15 +66,6 @@ export default function AgentEmailModal({
         />
 
         <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>
-          {t("emailSubject")}
-        </label>
-        <input
-          className="ps-input mb-3"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-        />
-
-        <label className="text-xs font-semibold block mb-1" style={{ color: "var(--text-secondary)" }}>
           {t("emailBody")}
         </label>
         <textarea
@@ -69,17 +75,27 @@ export default function AgentEmailModal({
           onChange={(e) => setMessage(e.target.value)}
         />
 
+        {error && (
+          <div
+            className="text-sm font-semibold px-3 py-2 rounded-md mb-3"
+            style={{ background: "#FDECEA", color: "var(--danger)" }}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2">
-          <button type="button" className="ps-btn-secondary" onClick={onClose}>
+          <button type="button" className="ps-btn-secondary" onClick={onClose} disabled={sending}>
             {t("cancel")}
           </button>
           <button
             type="button"
             className="ps-btn-primary"
-            disabled={!to || !message}
+            disabled={!to || !message.trim() || sending}
             onClick={send}
           >
-            {t("send")}
+            {sending ? `⏳ ${t("sending")}` : t("send")}
           </button>
         </div>
       </div>

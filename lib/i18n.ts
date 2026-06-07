@@ -174,6 +174,12 @@ const nl: Dict = {
   installIosStep2: "Scroll en kies 'Zet op beginscherm'",
   installIosStep3: "Tik op 'Voeg toe' rechtsboven",
   installIosFooter: "Daarna verschijnt het Prop-Scanner-icoon op je beginscherm en opent het in een eigen venster, net als een app.",
+
+  // Email status
+  sending: "Bezig met verzenden…",
+  emailSelfSuccess: "Mail naar jezelf verzonden ✅",
+  emailAgentSuccess: "Mail naar makelaar verzonden ✅",
+  emailErrorTitle: "Verzenden mislukt",
 };
 
 const en: Dict = {
@@ -319,6 +325,12 @@ const en: Dict = {
   installIosStep2: "Scroll down and choose 'Add to Home Screen'",
   installIosStep3: "Tap 'Add' in the top right",
   installIosFooter: "The Prop-Scanner icon will appear on your home screen and open in its own window, just like an app.",
+
+  // Email status
+  sending: "Sending…",
+  emailSelfSuccess: "Email sent to yourself ✅",
+  emailAgentSuccess: "Email sent to the agent ✅",
+  emailErrorTitle: "Failed to send",
 };
 
 const he: Dict = {
@@ -464,6 +476,12 @@ const he: Dict = {
   installIosStep2: "גלול למטה ובחר \"הוסף למסך הבית\"",
   installIosStep3: "לחץ \"הוסף\" בפינה הימנית העליונה",
   installIosFooter: "אחר כך האייקון של Prop-Scanner יופיע על מסך הבית וייפתח בחלון נפרד — בדיוק כמו אפליקציה.",
+
+  // Email status
+  sending: "שולח…",
+  emailSelfSuccess: "המייל נשלח אליך ✅",
+  emailAgentSuccess: "המייל נשלח לסוכן ✅",
+  emailErrorTitle: "השליחה נכשלה",
 };
 
 const dicts: Record<Lang, Dict> = { nl, en, he };
