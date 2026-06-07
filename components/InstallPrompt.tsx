@@ -42,6 +42,7 @@ type InstallCtx = {
 const Ctx = createContext<InstallCtx | null>(null);
 
 const DISMISS_KEY = "pwa-install-dismissed";
+const IOS_DISMISS_KEY = "pwa-ios-dismissed";
 
 export function InstallProvider({ children }: { children: React.ReactNode }) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
@@ -54,13 +55,27 @@ export function InstallProvider({ children }: { children: React.ReactNode }) {
   // Environment detection — runs once on mount.
   useEffect(() => {
     const ua = navigator.userAgent || "";
-    const ios = /iPad|iPhone|iPod/.test(ua) && !/Edg|Chrome\/\d/i.test(ua) ? true : /iPad|iPhone|iPod/.test(ua);
+    // Skip non-Safari iOS browsers (Chrome/Edge for iOS use WebKit but DO
+    // fire beforeinstallprompt because they're WebKit-restricted shells —
+    // wait, they don't either. Treat any iOS device as "iOS Safari" path.)
+    const ios = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       // iOS Safari uses a legacy property; cast through `unknown` to avoid `any`.
       (navigator as unknown as { standalone?: boolean }).standalone === true;
     setIsIOS(ios);
     setIsStandalone(standalone);
+
+    // iOS auto-show: no beforeinstallprompt is ever fired, so we surface the
+    // step-by-step guide on the first visit (per device) unless the user has
+    // dismissed it before.
+    if (ios && !standalone) {
+      try {
+        if (!localStorage.getItem(IOS_DISMISS_KEY)) setIosHelp(true);
+      } catch {
+        setIosHelp(true);
+      }
+    }
   }, []);
 
   // Capture the install prompt and decide whether to surface the banner now.
@@ -148,7 +163,12 @@ export function InstallProvider({ children }: { children: React.ReactNode }) {
       )}
       {iosHelp && !isStandalone && (
         <IOSHelpModal
-          onClose={() => setIosHelp(false)}
+          onClose={() => {
+            setIosHelp(false);
+            try {
+              localStorage.setItem(IOS_DISMISS_KEY, String(Date.now()));
+            } catch {}
+          }}
           title={t("installIosTitle")}
           step1={t("installIosStep1")}
           step2={t("installIosStep2")}

@@ -78,6 +78,15 @@ export default function FilterSidebar({
     onClose?.();
   }
 
+  // Pressing Enter inside any filter input applies the draft. Bound to all
+  // text/number inputs so the user can hit Enter from anywhere.
+  function onEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyAndClose(draft);
+    }
+  }
+
   const form = (
     <>
       <h2 className="text-lg font-semibold mb-4">{t("filters")}</h2>
@@ -88,6 +97,7 @@ export default function FilterSidebar({
           placeholder={t("freeText")}
           value={draft.q}
           onChange={(e) => update("q", e.target.value)}
+          onKeyDown={onEnter}
         />
       </Section>
 
@@ -142,6 +152,7 @@ export default function FilterSidebar({
             onChange={(e) =>
               update("minDiscount", Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10))))
             }
+            onKeyDown={onEnter}
           />
           <span className="text-sm text-text-secondary" style={{ color: "var(--text-secondary)" }}>
             %
@@ -161,6 +172,7 @@ export default function FilterSidebar({
             onChange={(e) =>
               update("maxPricePerSqm", Math.max(0, parseInt(e.target.value || "0", 10)))
             }
+            onKeyDown={onEnter}
           />
           <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
             €/m²
