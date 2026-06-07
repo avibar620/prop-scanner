@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/app/providers";
 import LanguageToggle from "./LanguageToggle";
+import { useInstallPrompt } from "./InstallPrompt";
 
 type Stats = {
   totalProperties: number;
@@ -18,6 +19,7 @@ export default function Navbar() {
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   useEffect(() => {
     if (!session) return;
@@ -63,6 +65,16 @@ export default function Navbar() {
 
       {/* Desktop actions */}
       <div className="hidden md:flex items-center gap-3">
+        {canInstall && (
+          <button
+            type="button"
+            onClick={() => promptInstall()}
+            className="ps-btn-secondary text-sm whitespace-nowrap"
+            title={t("installAppCta")}
+          >
+            📲 {t("installAppCta")}
+          </button>
+        )}
         <LanguageToggle />
         {isAdmin && (
           <button type="button" onClick={() => router.push("/admin")} className="ps-btn-ghost text-sm">
@@ -123,6 +135,18 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
+            )}
+            {canInstall && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  promptInstall();
+                }}
+                className="ps-btn-secondary text-left"
+              >
+                📲 {t("installAppCta")}
+              </button>
             )}
             {isAdmin && (
               <button

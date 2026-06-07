@@ -163,6 +163,17 @@ const nl: Dict = {
   aiAnalysisTitle: "AI Analyse",
   aiScore: "Score",
   generating: "Bezig met genereren…",
+
+  // PWA install
+  installAppTitle: "Installeer Prop-Scanner op je toestel",
+  installAppCta: "Installeren",
+  installNow: "Installeer nu",
+  installLater: "Later",
+  installIosTitle: "Installeer Prop-Scanner op je iPhone",
+  installIosStep1: "Tik op de deelknop onderaan in Safari",
+  installIosStep2: "Scroll en kies 'Zet op beginscherm'",
+  installIosStep3: "Tik op 'Voeg toe' rechtsboven",
+  installIosFooter: "Daarna verschijnt het Prop-Scanner-icoon op je beginscherm en opent het in een eigen venster, net als een app.",
 };
 
 const en: Dict = {
@@ -297,6 +308,17 @@ const en: Dict = {
   aiAnalysisTitle: "AI Analysis",
   aiScore: "Score",
   generating: "Generating…",
+
+  // PWA install
+  installAppTitle: "Install Prop-Scanner on your device",
+  installAppCta: "Install",
+  installNow: "Install now",
+  installLater: "Later",
+  installIosTitle: "Install Prop-Scanner on your iPhone",
+  installIosStep1: "Tap the Share button at the bottom of Safari",
+  installIosStep2: "Scroll down and choose 'Add to Home Screen'",
+  installIosStep3: "Tap 'Add' in the top right",
+  installIosFooter: "The Prop-Scanner icon will appear on your home screen and open in its own window, just like an app.",
 };
 
 const he: Dict = {
@@ -431,6 +453,17 @@ const he: Dict = {
   aiAnalysisTitle: "ניתוח AI",
   aiScore: "ציון",
   generating: "מייצר…",
+
+  // PWA install
+  installAppTitle: "התקן את Prop-Scanner על המכשיר שלך",
+  installAppCta: "התקנה",
+  installNow: "התקן עכשיו",
+  installLater: "מאוחר יותר",
+  installIosTitle: "התקנת Prop-Scanner על iPhone",
+  installIosStep1: "לחץ על כפתור השיתוף 📤 בתחתית Safari",
+  installIosStep2: "גלול למטה ובחר \"הוסף למסך הבית\"",
+  installIosStep3: "לחץ \"הוסף\" בפינה הימנית העליונה",
+  installIosFooter: "אחר כך האייקון של Prop-Scanner יופיע על מסך הבית וייפתח בחלון נפרד — בדיוק כמו אפליקציה.",
 };
 
 const dicts: Record<Lang, Dict> = { nl, en, he };

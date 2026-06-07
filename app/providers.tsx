@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { type Lang, LANG_STORAGE_KEY, isRTL, t as translate } from "@/lib/i18n";
+import { InstallProvider } from "@/components/InstallPrompt";
 
 // ---------------- Language context ----------------
 
@@ -71,7 +72,9 @@ export function useLang(): LangCtx {
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <LanguageProvider>{children}</LanguageProvider>
+      <LanguageProvider>
+        <InstallProvider>{children}</InstallProvider>
+      </LanguageProvider>
     </SessionProvider>
   );
 }
