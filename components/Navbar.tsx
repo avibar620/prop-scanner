@@ -32,7 +32,7 @@ export default function Navbar({ onRefresh }: { onRefresh?: () => void | Promise
   // session. It is deliberately not overwritten until the user hits refresh —
   // otherwise the "N new since your last visit" number would reset itself the
   // moment the page loaded and always read zero.
-  const [lastVisit] = useState<string | null>(() => {
+  const [lastVisit, setLastVisit] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(LAST_VISIT_KEY);
   });
@@ -59,8 +59,12 @@ export default function Navbar({ onRefresh }: { onRefresh?: () => void | Promise
     try {
       await Promise.all([loadStats(), onRefresh?.()]);
       // Only now does "last visit" advance, so the badge reflects what the user
-      // has actually seen.
-      window.localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString());
+      // has actually seen. Updating the state (not just localStorage) re-runs
+      // loadStats with the new baseline, which is what actually clears the
+      // "N new" pill — writing localStorage alone would leave it stuck on screen.
+      const now = new Date().toISOString();
+      window.localStorage.setItem(LAST_VISIT_KEY, now);
+      setLastVisit(now);
     } finally {
       setRefreshing(false);
     }
