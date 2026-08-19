@@ -40,7 +40,9 @@ function getKey(): string | null {
   return key;
 }
 
-/** Returns the raw HTML body or `null` on any error. */
+/** Returns the raw HTML body or `null` on any error. Retries once on 5xx or
+ *  network/timeout failures — ScraperAPI sometimes flakes on heavy renders.
+ */
 export async function scraperFetch(target: string, opts: FetchOptions = {}): Promise<string | null> {
   const key = getKey();
   if (!key) return null;
@@ -53,27 +55,44 @@ export async function scraperFetch(target: string, opts: FetchOptions = {}): Pro
   if (opts.render !== false) params.set("render", "true");
 
   const url = `${ENDPOINT}?${params.toString()}`;
-  const timeout = opts.timeoutMs ?? 60_000;
+  // render=true on big SPAs (Immoweb's 2.9MB) needs more than 60s sometimes.
+  const timeout = opts.timeoutMs ?? (opts.render === false ? 30_000 : 90_000);
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    let res: Response;
+  async function once(): Promise<{ ok: boolean; html: string | null; status: number | null }> {
     try {
-      res = await fetch(url, { signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return { ok: false, html: null, status: res.status };
+        // The timer MUST stay armed until the body is fully read. It used to be
+        // cleared in a `finally` right after the headers arrived, which left
+        // `res.text()` with no timeout at all — ScraperAPI would return 200
+        // headers and then stall mid-body, hanging the whole scrape forever
+        // (observed 2026-08-13: a run sat idle for 45 min at zero CPU).
+        return { ok: true, html: await res.text(), status: 200 };
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[scraperapi] network/timeout for ${target.slice(0, 90)}: ${msg.slice(0, 100)}`);
+      return { ok: false, html: null, status: null };
     }
-    if (!res.ok) {
-      console.warn(`[scraperapi] ${res.status} for ${target.slice(0, 90)}`);
-      return null;
-    }
-    return await res.text();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[scraperapi] error fetching ${target.slice(0, 90)}: ${msg.slice(0, 120)}`);
+  }
+
+  let attempt = await once();
+  // Retry once on 5xx or network errors — but NOT on 4xx (those are real
+  // dead URLs and a retry just wastes credits).
+  if (!attempt.ok && (attempt.status === null || (attempt.status >= 500 && attempt.status <= 599))) {
+    console.warn(`[scraperapi] retry for ${target.slice(0, 90)}`);
+    attempt = await once();
+  }
+  if (!attempt.ok) {
+    console.warn(`[scraperapi] ${attempt.status ?? "ERR"} for ${target.slice(0, 90)}`);
     return null;
   }
+  return attempt.html;
 }
 
 /** Convenience: returns a Cheerio root or `null` on failure. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/app/providers";
@@ -11,24 +11,62 @@ type Stats = {
   totalProperties: number;
   avgDiscountPct: number | null;
   lastScanAt: string | null;
+  newToday?: number;
+  newThisWeek?: number;
+  newSince?: number;
 };
 
-export default function Navbar() {
+const LAST_VISIT_KEY = "prop-scanner-last-visit";
+
+export default function Navbar({ onRefresh }: { onRefresh?: () => void | Promise<void> } = {}) {
   const { t } = useLang();
   const { data: session } = useSession();
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { canInstall, promptInstall } = useInstallPrompt();
+
+  // Timestamp of the previous visit, read ONCE on mount and held for the whole
+  // session. It is deliberately not overwritten until the user hits refresh —
+  // otherwise the "N new since your last visit" number would reset itself the
+  // moment the page loaded and always read zero.
+  const [lastVisit] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(LAST_VISIT_KEY);
+  });
+
+  const loadStats = useCallback(async () => {
+    const qs = lastVisit ? `?since=${encodeURIComponent(lastVisit)}` : "";
+    try {
+      const r = await fetch(`/api/stats${qs}`);
+      if (r.ok) setStats(await r.json());
+    } catch {
+      /* stats are decorative — a failure must not break the navbar */
+    }
+    setLastUpdated(new Date());
+  }, [lastVisit]);
 
   useEffect(() => {
     if (!session) return;
-    fetch("/api/stats")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setStats(d))
-      .catch(() => null);
-  }, [session]);
+    loadStats();
+  }, [session, loadStats]);
 
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([loadStats(), onRefresh?.()]);
+      // Only now does "last visit" advance, so the badge reflects what the user
+      // has actually seen.
+      window.localStorage.setItem(LAST_VISIT_KEY, new Date().toISOString());
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const newSince = stats?.newSince ?? 0;
   const isAdmin = session?.user?.role === "admin";
 
   return (
@@ -65,6 +103,33 @@ export default function Navbar() {
 
       {/* Desktop actions */}
       <div className="hidden md:flex items-center gap-3">
+        {/* New-since-last-visit hint */}
+        {newSince > 0 && (
+          <span
+            className="ps-pill text-xs font-semibold whitespace-nowrap"
+            style={{ background: "var(--deal-excellent)", color: "#fff" }}
+          >
+            ✨ {newSince.toLocaleString("nl-BE")} {t("newSinceLastVisit")}
+          </span>
+        )}
+
+        <div className="flex flex-col items-end">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="ps-btn-secondary text-sm whitespace-nowrap"
+            title={t("refreshNow")}
+          >
+            {refreshing ? "⏳" : "🔄"} {t("refreshNow")}
+          </button>
+          {lastUpdated && (
+            <span className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              {t("lastUpdated")}: {lastUpdated.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+
         {canInstall && (
           <button
             type="button"
@@ -118,6 +183,31 @@ export default function Navbar() {
             <div className="flex justify-end">
               <LanguageToggle />
             </div>
+
+            {newSince > 0 && (
+              <span
+                className="ps-pill text-xs font-semibold text-center"
+                style={{ background: "var(--deal-excellent)", color: "#fff" }}
+              >
+                ✨ {newSince.toLocaleString("nl-BE")} {t("newSinceLastVisit")}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                handleRefresh();
+              }}
+              disabled={refreshing}
+              className="ps-btn-secondary text-left"
+            >
+              {refreshing ? "⏳" : "🔄"} {t("refreshNow")}
+            </button>
+            {lastUpdated && (
+              <div className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                {t("lastUpdated")}: {lastUpdated.toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            )}
             {stats && (
               <div className="text-xs space-y-1 mt-1" style={{ color: "var(--text-secondary)" }}>
                 <div>

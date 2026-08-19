@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const tag = sp.get("tag")?.trim();
   const favoritesOnly = sp.get("favorites") === "1" || sp.get("favorites") === "true";
   const aiOnly = sp.get("aiOnly") === "1" || sp.get("aiOnly") === "true";
+  const addedAfter = sp.get("addedAfter")?.trim();
   const sort = sp.get("sort") ?? "highestDiscount";
   const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10));
 
@@ -65,6 +66,16 @@ export async function GET(req: NextRequest) {
   }
   if (maxPricePerSqm > 0) {
     where.pricePerSqm = { lte: maxPricePerSqm };
+  }
+
+  // "Added since" filter. Accepts any ISO date string ("2026-08-13" or a full
+  // timestamp). An unparseable value is ignored rather than 500-ing, so a
+  // hand-edited URL can't break the page.
+  if (addedAfter) {
+    const since = new Date(addedAfter);
+    if (!Number.isNaN(since.getTime())) {
+      where.firstSeenAt = { gte: since };
+    }
   }
 
   // Sorting

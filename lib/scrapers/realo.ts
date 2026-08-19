@@ -12,16 +12,28 @@ import { scraperFetch$, scraperApiAvailable } from "./scraper-api";
  * NEVER throws — returns [] on any failure path.
  */
 
-const MAX_PAGES_PER_AREA = 5;
+const MAX_PAGES_PER_AREA = 2; // Cap kept low to conserve ScraperAPI credits
 
-function buildUrl(postalCode: string, page: number): string {
-  // Realo's listing index supports a postalCode query plus a page param.
-  const params = new URLSearchParams({
-    transactionType: "FORSALE",
-    postalCode,
-  });
-  if (page > 1) params.set("page", String(page));
-  return `https://www.realo.be/nl/zoeken?${params.toString()}`;
+// Realo's search URL embeds an English city slug + postal: /en/search/{slug}-{postal}.
+// Most BE city slugs are just the lowercased Dutch name; a few have anglicised
+// slugs (Antwerpen→antwerp, Brussel→brussels, Gent→ghent, Luik→liege).
+const REALO_CITY_SLUG: Record<string, string> = {
+  antwerpen: "antwerp",
+  brussel: "brussels",
+  bruxelles: "brussels",
+  gent: "ghent",
+  ghent: "ghent",
+  liège: "liege",
+  luik: "liege",
+  namen: "namur",
+  bergen: "mons",
+};
+
+function buildUrl(city: string, postalCode: string, page: number): string {
+  const key = city.toLowerCase().trim();
+  const slug = REALO_CITY_SLUG[key] ?? key.replace(/\s+/g, "-");
+  const base = `https://www.realo.be/en/search/${slug}-${postalCode}`;
+  return page > 1 ? `${base}?page=${page}` : base;
 }
 
 function sleep(ms: number) {
@@ -39,54 +51,56 @@ export async function scrapeRealo(
   for (const area of areas) {
     try {
       for (let page = 1; page <= MAX_PAGES_PER_AREA; page++) {
-        const $ = await scraperFetch$(buildUrl(area.postalCode, page), { render: true });
+        const $ = await scraperFetch$(buildUrl(area.city, area.postalCode, page), { render: true });
         if (!$) break;
 
-        // Realo currently uses [data-testid="..."] hooks on cards; we also
-        // accept hashed-class fallbacks because the build hash changes.
-        const cards = $(
-          "[data-testid*='estate'],[data-testid*='listing'],[data-testid*='card']," +
-            "article[class*='card'],article[class*='listing'],div[class*='property-card'],div[class*='estate-card']"
-        );
+        // Realo's actual card class (verified live 2026-06-07) is
+        // .component-estate-grid-item. Cards wrap an <a href="/en/{postal}-{slug}/{id}">.
+        const cards = $(".component-estate-grid-item:not(.component-estate-grid-item--notification)");
 
         if (cards.length === 0) break;
 
         let added = 0;
         cards.each((_, el) => {
           const $el = $(el);
-          const a = $el.find("a[href*='/nl/']").first();
+          const a = $el.find("a[href*='/en/']").first();
           const href = a.attr("href") ?? "";
-          if (!href.includes("/nl/")) return;
+          if (!href) return;
 
-          // Realo's detail URLs look like /nl/{slug}/{id} — pull the id off the end.
-          const idMatch = href.match(/\/(\d{6,})(?:$|\?|#|\/)/) ?? href.match(/-(\d{6,})(?:$|\?|#|\/)/);
+          // /en/{postal}-{slug}/{id} — id is the last 6-9 digit segment
+          const idMatch = href.match(/\/(\d{6,9})(?:$|\?|#|\/)/);
           if (!idMatch) return;
           const externalId = `realo-${idMatch[1]}`;
           if (seen.has(externalId)) return;
 
           const url = href.startsWith("http") ? href : `https://www.realo.be${href}`;
-          const priceText = $el.find("[class*='price'],[data-testid*='price']").first().text();
+          const priceText = $el.find("[class*='price'],[class*='Price']").first().text();
           const price = parseEuroPrice(priceText);
           if (!price) return;
 
           const title =
-            trim($el.find("[class*='title'],[data-testid*='title'],h2,h3").first().text()) ||
+            trim($el.find("[class*='title'],h2,h3,h4").first().text()) ||
             `Realo ${idMatch[1]}`;
           const locationText = trim($el.find("[class*='location'],[class*='address']").first().text()) || area.city;
 
-          const meta = trim($el.find("[class*='feature'],[class*='attribute'],[class*='meta']").first().text());
-          const sqmMatch = meta.match(/(\d{2,4})\s*m/i);
+          // Realo renders attributes inline ("3 beds 2 baths 409m2"). The m²
+          // marker appears as either "m²" (superscript) or "m2" (ASCII) —
+          // accept both. Same flexibility for the rooms label.
+          const cardText = $el.text();
+          const sqmMatch = cardText.match(/(\d{2,4})\s*m[²2]\b/i);
           const sqm = sqmMatch ? parseInt(sqmMatch[1], 10) : undefined;
-          const roomsMatch = meta.match(/(\d{1,2})\s*(?:slpk|slaapkamer|chambre|bedroom|kamer)/i);
+          // Realo uses "3 beds" — match "bed" or "beds" plus the usual NL/FR labels.
+          const roomsMatch = cardText.match(/(\d{1,2})\s*(?:bedrooms?|beds?\b|slpk|slaapkamers?|chambres?|kamers?)/i);
           const rooms = roomsMatch ? parseInt(roomsMatch[1], 10) : undefined;
 
           const img = $el.find("img").first();
           const imageUrl = img.attr("src") ?? img.attr("data-src") ?? undefined;
 
-          // If the location string includes a Belgian postal, prefer it; else
-          // fall back to the URL-derived area postal.
-          const postalMatch = locationText.match(/\b([1-9]\d{3})\b/);
-          const postalCode = postalMatch ? postalMatch[1] : area.postalCode;
+          // Prefer the URL-derived postal — the /en/{postal}-... slug is
+          // authoritative for Realo, whereas the rendered location-text might
+          // mention a parent municipality.
+          const urlPostalMatch = href.match(/\/(\d{4})-/);
+          const postalCode = urlPostalMatch ? urlPostalMatch[1] : area.postalCode;
 
           seen.add(externalId);
           out.push({

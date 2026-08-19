@@ -43,6 +43,7 @@ export default function HomePage() {
     if (filters.source) sp.set("source", filters.source);
     if (filters.favorites) sp.set("favorites", "1");
     if (filters.aiOnly) sp.set("aiOnly", "1");
+    if (filters.addedAfter) sp.set("addedAfter", filters.addedAfter);
     if (filters.sort) sp.set("sort", filters.sort);
     sp.set("page", String(page));
     return sp.toString();
@@ -76,7 +77,7 @@ export default function HomePage() {
 
   return (
     <>
-      <Navbar />
+      <Navbar onRefresh={load} />
       <div className="pt-16 flex" style={{ background: "var(--bg)", minHeight: "100vh" }}>
         <FilterSidebar
           value={filters}

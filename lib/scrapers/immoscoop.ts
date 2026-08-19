@@ -10,13 +10,16 @@ import { scraperFetch$, scraperApiAvailable } from "./scraper-api";
  * NEVER throws — returns [] on any failure path.
  */
 
-const MAX_PAGES_PER_AREA = 5;
+// Immoscoop returns all listings for an area on page 1 (verified live
+// 2026-06-07 — `?pagina=2` returns the same anchors). Stop at page 1.
+const MAX_PAGES_PER_AREA = 1;
 
-function buildUrl(postalCode: string, page: number): string {
-  // Immoscoop filters by `postcode` and paginates with `pagina` (Dutch URL).
-  const params = new URLSearchParams({ postcode: postalCode });
-  if (page > 1) params.set("pagina", String(page));
-  return `https://www.immoscoop.be/nl/te-koop?${params.toString()}`;
+// Immoscoop search URL: /zoeken/te-koop/{postal}-{city-slug} (Dutch city
+// names, lowercased, hyphenated). Pagination uses ?pagina=N.
+function buildUrl(city: string, postalCode: string, page: number): string {
+  const slug = city.toLowerCase().trim().replace(/\s+/g, "-");
+  const base = `https://www.immoscoop.be/zoeken/te-koop/${postalCode}-${slug}`;
+  return page > 1 ? `${base}?pagina=${page}` : base;
 }
 
 function sleep(ms: number) {
@@ -34,51 +37,66 @@ export async function scrapeImmoscoop(
   for (const area of areas) {
     try {
       for (let page = 1; page <= MAX_PAGES_PER_AREA; page++) {
-        const $ = await scraperFetch$(buildUrl(area.postalCode, page), { render: true });
+        const $ = await scraperFetch$(buildUrl(area.city, area.postalCode, page), { render: true });
         if (!$) break;
 
-        const cards = $(
-          "[data-testid*='listing'],[data-testid*='card']," +
-            "article[class*='card'],article[class*='listing']," +
-            "div[class*='property-card'],div[class*='estate-card'],div[class*='result-item']"
-        );
+        // Anchor-first: each listing has exactly one `/te-koop/{postal}-{city}/{id}` link.
+        // We walk anchors then ascend to the nearest card (.card_card__*) for metadata.
+        const anchors = $("a[href^='/te-koop/']");
+        const idToAnchor = new Map<string, ReturnType<typeof $>>();
+        anchors.each((_, el) => {
+          const href = $(el).attr("href") ?? "";
+          const m = href.match(/\/te-koop\/[^/]+\/(\d{5,})(?:$|\?|#|\/)/);
+          if (!m) return;
+          if (!idToAnchor.has(m[1])) idToAnchor.set(m[1], $(el));
+        });
 
-        if (cards.length === 0) break;
+        if (idToAnchor.size === 0) break;
 
         let added = 0;
-        cards.each((_, el) => {
-          const $el = $(el);
-          const a = $el.find("a[href]").first();
-          const href = a.attr("href") ?? "";
-          if (!href) return;
+        for (const [id, $a] of idToAnchor.entries()) {
+          const href = $a.attr("href") ?? "";
+          if (!href) continue;
+          const externalId = `immoscoop-${id}`;
+          if (seen.has(externalId)) continue;
 
-          // Immoscoop detail URLs commonly include a numeric / slug-id suffix.
-          const idMatch = href.match(/\/(\d{5,})(?:$|\?|#|\/)/) ?? href.match(/-(\d{5,})(?:$|\?|#)/);
-          if (!idMatch) return;
-          const externalId = `immoscoop-${idMatch[1]}`;
-          if (seen.has(externalId)) return;
+          // The anchor itself contains the full card content (price, title,
+          // attributes, image) — verified live 2026-06-07. No need to ascend.
+          const card = $a;
 
           const url = href.startsWith("http") ? href : `https://www.immoscoop.be${href}`;
-          const priceText = $el.find("[class*='price'],[data-testid*='price']").first().text();
+
+          // Price: Immoscoop renders it as just digits with €, in a known class.
+          const priceText =
+            trim(card.find("[class*='price'],[class*='Price']").first().text()) || trim(card.text());
           const price = parseEuroPrice(priceText);
-          if (!price) return;
+          if (!price) continue;
 
+          // Title: the card's heading element, fallback to anchor text.
           const title =
-            trim($el.find("[class*='title'],[data-testid*='title'],h2,h3").first().text()) ||
-            `Immoscoop ${idMatch[1]}`;
+            trim(card.find("h1,h2,h3,h4,[class*='title']").first().text()) || trim($a.text()) || `Immoscoop ${id}`;
 
-          const locationText = trim($el.find("[class*='location'],[class*='address']").first().text()) || area.city;
-          const meta = trim($el.find("[class*='feature'],[class*='attribute'],[class*='meta']").first().text());
-          const sqmMatch = meta.match(/(\d{2,4})\s*m/i);
-          const sqm = sqmMatch ? parseInt(sqmMatch[1], 10) : undefined;
-          const roomsMatch = meta.match(/(\d{1,2})\s*(?:slpk|slaapkamer|chambre|bedroom|kamer)/i);
-          const rooms = roomsMatch ? parseInt(roomsMatch[1], 10) : undefined;
+          // Immoscoop renders attributes as "Bewoonbare oppervlakte (m²)\n\n…
+          // 59\n\nAantal slaapkamers\n\n…1Aantal badkamers…". The gap between
+          // label and number is often 20+ whitespace chars — use \s* so it
+          // can swallow any amount of whitespace.
+          const cardText = card.text();
+          const sqmAfter = cardText.match(/(?:Bewoonbare\s+oppervlakte|oppervlakte|surface)[^\d]{0,40}(\d{2,4})/i);
+          const sqmBefore = cardText.match(/(\d{2,4})\s*m[²2]\b/i);
+          const sqm = sqmAfter ? parseInt(sqmAfter[1], 10) : sqmBefore ? parseInt(sqmBefore[1], 10) : undefined;
+          const roomsAfter = cardText.match(/(?:slaapkamers?|bedrooms?|chambres?)[^\d]{0,40}(\d{1,2})/i);
+          const roomsBefore = cardText.match(/(\d{1,2})\s*(?:slpk|slaapkamer|kamer|bedroom)/i);
+          const rooms = roomsAfter ? parseInt(roomsAfter[1], 10) : roomsBefore ? parseInt(roomsBefore[1], 10) : undefined;
 
-          const img = $el.find("img").first();
+          const img = card.find("img").first();
           const imageUrl = img.attr("src") ?? img.attr("data-src") ?? undefined;
 
-          const postalMatch = locationText.match(/\b([1-9]\d{3})\b/);
-          const postalCode = postalMatch ? postalMatch[1] : area.postalCode;
+          // The URL slug embeds postal: /te-koop/{postal}-{city}/{id}. That's
+          // authoritative — prefer it over any rendered text.
+          const urlPostalMatch = href.match(/\/te-koop\/(\d{4})-([a-z-]+)/i);
+          const postalCode = urlPostalMatch ? urlPostalMatch[1] : area.postalCode;
+          const citySlug = urlPostalMatch ? urlPostalMatch[2] : area.city.toLowerCase();
+          const city = citySlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
           seen.add(externalId);
           out.push({
@@ -91,17 +109,17 @@ export async function scrapeImmoscoop(
             sqm,
             rooms,
             type: inferType(title),
-            address: locationText || area.city,
-            city: extractCity(locationText) || area.city,
+            address: city,
+            city,
             municipality: area.city,
             postalCode,
             imageUrl,
             imageUrls: imageUrl ? [imageUrl] : [],
           });
           added += 1;
-        });
+        }
 
-        console.log(`[immoscoop] ${area.city} ${area.postalCode} p${page}: +${added} (cards=${cards.length})`);
+        console.log(`[immoscoop] ${area.city} ${area.postalCode} p${page}: +${added} (anchors=${idToAnchor.size})`);
         if (added === 0) break;
         await sleep(300);
       }

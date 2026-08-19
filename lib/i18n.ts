@@ -184,6 +184,22 @@ const nl: Dict = {
   // AI analysis
   analysisLanguage: "Taal van analyse",
   reanalyzeIn: "Analyse in",
+
+  // Added-date filter
+  addedDate: "Toegevoegd",
+  addedAnytime: "Altijd",
+  addedToday: "Vandaag toegevoegd",
+  addedThisWeek: "Afgelopen week toegevoegd",
+  addedCustom: "Kies datum",
+
+  // Refresh / new-since-last-visit
+  refreshNow: "Vernieuwen",
+  lastUpdated: "Laatst bijgewerkt",
+  newSinceLastVisit: "nieuwe panden!",
+
+  // New badges
+  newToday: "NIEUW VANDAAG",
+  newThisWeek: "Nieuw deze week",
 };
 
 const en: Dict = {
@@ -339,6 +355,22 @@ const en: Dict = {
   // AI analysis
   analysisLanguage: "Analysis language",
   reanalyzeIn: "Reanalyze in",
+
+  // Added-date filter
+  addedDate: "Added",
+  addedAnytime: "Any time",
+  addedToday: "Added today",
+  addedThisWeek: "Added this week",
+  addedCustom: "Pick a date",
+
+  // Refresh / new-since-last-visit
+  refreshNow: "Refresh",
+  lastUpdated: "Last updated",
+  newSinceLastVisit: "new properties!",
+
+  // New badges
+  newToday: "NEW TODAY",
+  newThisWeek: "New this week",
 };
 
 const he: Dict = {
@@ -494,6 +526,22 @@ const he: Dict = {
   // AI analysis
   analysisLanguage: "שפת הניתוח",
   reanalyzeIn: "נתח מחדש ב-",
+
+  // Added-date filter
+  addedDate: "תאריך הוספה",
+  addedAnytime: "הכל",
+  addedToday: "נוסף היום",
+  addedThisWeek: "נוסף בשבוע האחרון",
+  addedCustom: "בחר תאריך",
+
+  // Refresh / new-since-last-visit
+  refreshNow: "רענן",
+  lastUpdated: "עודכן לאחרונה",
+  newSinceLastVisit: "נכסים חדשים!",
+
+  // New badges
+  newToday: "חדש היום",
+  newThisWeek: "חדש השבוע",
 };
 
 const dicts: Record<Lang, Dict> = { nl, en, he };

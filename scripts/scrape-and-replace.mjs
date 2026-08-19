@@ -5,10 +5,15 @@ import "dotenv/config";
 import { config } from "dotenv";
 config({ path: ".env.local", override: true });
 import { scrapeZimmo } from "../lib/scrapers/zimmo.ts";
-import { scrapeImmoweb } from "../lib/scrapers/immoweb.ts";
 import { scrape2dehands } from "../lib/scrapers/tweedehands.ts";
-import { scrapeRealo } from "../lib/scrapers/realo.ts";
-import { scrapeImmoscoop } from "../lib/scrapers/immoscoop.ts";
+
+// 2026-08-13 — ScraperAPI sources (Immoweb / Realo / Immoscoop) are DISABLED.
+// The gateway was returning a flood of 500/504s and stalling mid-response, which
+// pushed a run that used to take ~12 min past 45 min until it was killed. Only the
+// two free, direct-fetch scrapers (Zimmo, 2dehands) run now.
+// To re-enable: set USE_SCRAPER_API=true in web/.env.local. The imports below are
+// dynamic so a disabled run never even loads the gateway code.
+const USE_SCRAPER_API = process.env.USE_SCRAPER_API === "true";
 
 const prisma = new PrismaClient();
 const start = Date.now();
@@ -25,26 +30,34 @@ console.log(`Zimmo (cheerio):    starting...`);
 const zimmoRaw = await scrapeZimmo(areaInput);
 console.log(`Zimmo done:         ${zimmoRaw.length} listings in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 
-// 2b. Immoweb / Realo / Immoscoop — all via ScraperAPI gateway.
-// Gated on SCRAPER_API_KEY: with no key set, each scraper returns [] without
-// burning network calls, so this whole block is a safe no-op in dev.
-const scraperApiActive =
-  process.env.SCRAPER_API_KEY && process.env.SCRAPER_API_KEY !== "PLACEHOLDER_FILL_THIS";
+// 2b. Immoweb / Realo / Immoscoop — all via the paid ScraperAPI gateway.
+// Disabled by default (see USE_SCRAPER_API note at the top of this file).
+let immowebRaw = [];
+let realoRaw = [];
+let immoscoopRaw = [];
 
-const immowebStart = Date.now();
-console.log(`Immoweb (ScraperAPI):   starting (key=${scraperApiActive ? "yes" : "MISSING — skip"})...`);
-const immowebRaw = scraperApiActive ? await scrapeImmoweb(areaInput) : [];
-console.log(`Immoweb done:           ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
+if (!USE_SCRAPER_API) {
+  console.log(`Immoweb / Realo / Immoscoop: SKIPPED (ScraperAPI disabled — set USE_SCRAPER_API=true to re-enable)`);
+} else {
+  const { scrapeImmoweb } = await import("../lib/scrapers/immoweb.ts");
+  const { scrapeRealo } = await import("../lib/scrapers/realo.ts");
+  const { scrapeImmoscoop } = await import("../lib/scrapers/immoscoop.ts");
 
-const realoStart = Date.now();
-console.log(`Realo (ScraperAPI):     starting...`);
-const realoRaw = scraperApiActive ? await scrapeRealo(areaInput) : [];
-console.log(`Realo done:             ${realoRaw.length} listings in ${((Date.now() - realoStart) / 1000).toFixed(1)}s`);
+  const immowebStart = Date.now();
+  console.log(`Immoweb (ScraperAPI):   starting...`);
+  immowebRaw = await scrapeImmoweb(areaInput);
+  console.log(`Immoweb done:           ${immowebRaw.length} listings in ${((Date.now() - immowebStart) / 1000).toFixed(1)}s`);
 
-const immoscoopStart = Date.now();
-console.log(`Immoscoop (ScraperAPI): starting...`);
-const immoscoopRaw = scraperApiActive ? await scrapeImmoscoop(areaInput) : [];
-console.log(`Immoscoop done:         ${immoscoopRaw.length} listings in ${((Date.now() - immoscoopStart) / 1000).toFixed(1)}s`);
+  const realoStart = Date.now();
+  console.log(`Realo (ScraperAPI):     starting...`);
+  realoRaw = await scrapeRealo(areaInput);
+  console.log(`Realo done:             ${realoRaw.length} listings in ${((Date.now() - realoStart) / 1000).toFixed(1)}s`);
+
+  const immoscoopStart = Date.now();
+  console.log(`Immoscoop (ScraperAPI): starting...`);
+  immoscoopRaw = await scrapeImmoscoop(areaInput);
+  console.log(`Immoscoop done:         ${immoscoopRaw.length} listings in ${((Date.now() - immoscoopStart) / 1000).toFixed(1)}s`);
+}
 
 // 2c. 2dehands (global list — pulls ~70-100 listings/run regardless of area)
 const tdhStart = Date.now();
@@ -155,6 +168,11 @@ for (const r of raw) {
   }
 }
 console.log(`  Created: ${created}, Updated: ${updated}, Failed: ${failed}`);
+console.log(`Total: ${raw.length} | New: ${created} | Updated: ${updated} | Errors: ${failed}`);
+// Machine-readable one-liner. run-scrape.ps1 greps for this exact prefix and
+// re-logs the numbers at the top level, so the run summary is visible in
+// scrape-log.txt without scrolling through thousands of per-listing lines.
+console.log(`SCRAPE_SUMMARY|total=${raw.length}|new=${created}|updated=${updated}|errors=${failed}`);
 
 // 6. Recalc market averages — DELEGATES to the proper implementation in
 // lib/market.ts (size buckets + winsorize + ±55% cap + 4-tier fallback).

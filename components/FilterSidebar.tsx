@@ -14,6 +14,8 @@ export type Filters = {
   source: string;
   favorites: boolean;
   aiOnly: boolean;
+  /** Full ISO timestamp; only properties first seen at/after this are returned. "" = no filter. */
+  addedAfter: string;
   sort: string;
 };
 
@@ -28,8 +30,37 @@ const EMPTY: Filters = {
   source: "",
   favorites: false,
   aiOnly: false,
+  addedAfter: "",
   sort: "highestDiscount",
 };
+
+/**
+ * Midnight LOCAL time, `daysAgo` days back, as an ISO timestamp.
+ * Local (not UTC) matters: in Belgium UTC midnight is 02:00 local, so a plain
+ * "YYYY-MM-DD" would silently drop anything added in the first two hours of the day.
+ */
+function startOfLocalDay(daysAgo: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString();
+}
+
+/** ISO timestamp -> "YYYY-MM-DD" in local time, for <input type="date">. */
+function toDateInputValue(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM-DD" from a date input -> local-midnight ISO timestamp. */
+function fromDateInputValue(v: string): string {
+  if (!v) return "";
+  const [y, m, day] = v.split("-").map(Number);
+  if (!y || !m || !day) return "";
+  return new Date(y, m - 1, day, 0, 0, 0, 0).toISOString();
+}
 
 type CityRow = { city: string; count: number };
 type Source = { id: string; name: string; isActive: boolean };
@@ -53,6 +84,11 @@ export default function FilterSidebar({
   const [draft, setDraft] = useState<Filters>(value);
   const [cities, setCities] = useState<CityRow[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  // Whether the custom date picker is revealed. Opens automatically when the
+  // incoming value is a date that matches neither quick preset.
+  const [customDateOpen, setCustomDateOpen] = useState(
+    () => !!value.addedAfter && value.addedAfter !== startOfLocalDay(0) && value.addedAfter !== startOfLocalDay(7)
+  );
 
   useEffect(() => {
     setDraft(value);
@@ -243,6 +279,64 @@ export default function FilterSidebar({
         </label>
       </Section>
 
+      <Section title={t("addedDate")}>
+        <div className="flex flex-col gap-1.5">
+          {[
+            { key: "", label: t("addedAnytime"), value: "" },
+            { key: "today", label: t("addedToday"), value: startOfLocalDay(0) },
+            { key: "week", label: t("addedThisWeek"), value: startOfLocalDay(7) },
+          ].map((opt) => {
+            const active = !customDateOpen && draft.addedAfter === opt.value;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => {
+                  setCustomDateOpen(false);
+                  update("addedAfter", opt.value);
+                }}
+                className="ps-pill text-left"
+                style={{
+                  background: active ? "var(--accent)" : "#F5F2EC",
+                  color: active ? "#fff" : "var(--text-secondary)",
+                  cursor: "pointer",
+                  minHeight: 32,
+                  padding: "6px 12px",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setCustomDateOpen((o) => !o)}
+            className="ps-pill text-left"
+            style={{
+              background: customDateOpen ? "var(--accent)" : "#F5F2EC",
+              color: customDateOpen ? "#fff" : "var(--text-secondary)",
+              cursor: "pointer",
+              minHeight: 32,
+              padding: "6px 12px",
+            }}
+          >
+            📅 {t("addedCustom")}
+          </button>
+
+          {customDateOpen && (
+            <input
+              type="date"
+              className="ps-input mt-1"
+              max={toDateInputValue(new Date().toISOString())}
+              value={toDateInputValue(draft.addedAfter)}
+              onChange={(e) => update("addedAfter", fromDateInputValue(e.target.value))}
+              onKeyDown={onEnter}
+            />
+          )}
+        </div>
+      </Section>
+
       <Section title={t("sort")}>
         <select
           className="ps-input"
@@ -264,6 +358,7 @@ export default function FilterSidebar({
         type="button"
         className="ps-btn-ghost w-full mt-1.5 text-sm"
         onClick={() => {
+          setCustomDateOpen(false);
           setDraft(EMPTY);
           applyAndClose(EMPTY);
         }}

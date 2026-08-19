@@ -30,7 +30,12 @@ export default function PropertyCard({
 
   const deal = dealLevel(p.discountPct);
   const verdict = aiVerdict(p.aiScore);
-  const isNew = Date.now() - new Date(p.firstSeenAt).getTime() < 24 * 60 * 60 * 1000;
+  // Two-tier freshness badge: red "new today" (<24h) takes precedence over the
+  // orange "new this week" (<7d). Never both.
+  const ageMs = Date.now() - new Date(p.firstSeenAt).getTime();
+  const isNewToday = ageMs < 24 * 60 * 60 * 1000;
+  const isNewThisWeek = !isNewToday && ageMs < 7 * 24 * 60 * 60 * 1000;
+  const isNew = isNewToday || isNewThisWeek;
   const discountAbs = Math.abs(p.discountPct ?? 0).toFixed(0);
   // Show market row only when we have both: a market €/m² avg AND a usable discountPct.
   // Compare apples-to-apples in €/m² (NOT total prices) — total comparison was
@@ -107,13 +112,25 @@ export default function PropertyCard({
           {p.source}
         </div>
 
-        {/* NEW badge */}
-        {isNew && (
+        {/* Freshness badge — bold red for today, orange for this week */}
+        {isNewToday && (
           <div
-            className="ps-pill absolute bottom-3 left-3"
-            style={{ background: "var(--danger)", color: "#fff" }}
+            className="ps-pill absolute bottom-3 left-3 font-bold"
+            style={{
+              background: "var(--danger)",
+              color: "#fff",
+              boxShadow: "0 2px 8px rgba(198,40,40,0.45)",
+            }}
           >
-            {t("newProperty")} 🔥
+            🆕 {t("newToday")}
+          </div>
+        )}
+        {isNewThisWeek && (
+          <div
+            className="ps-pill absolute bottom-3 left-3 font-semibold"
+            style={{ background: "var(--warning)", color: "#fff" }}
+          >
+            {t("newThisWeek")}
           </div>
         )}
 
